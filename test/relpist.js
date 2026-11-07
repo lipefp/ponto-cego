@@ -1,0 +1,9 @@
+const {chromium}=require('/opt/npm-tools/node_modules/playwright');
+(async()=>{const wid=process.argv[2]||'pistol',slot=process.argv[3]||'s',fr=JSON.parse(process.argv[4]||'[0.1,0.3,0.5,0.7,0.9]');
+const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+const p=await (await b.newContext({viewport:{width:+(process.env.VW||960),height:+(process.env.VH||540)},offline:true})).newPage();p.setDefaultTimeout(600000);const errs=[];p.on('pageerror',e=>errs.push('PE '+e.message));
+await p.goto('file://'+process.cwd()+'/dist/test.html');await p.waitForFunction(()=>window.__pc&&(__pc.ASSETS.ready||__pc.ASSETS.failed),null,{timeout:900000,polling:100});await p.waitForFunction(()=>__pc.WM&&__pc.WM.on,null,{timeout:240000,polling:500}).catch(()=>{});await p.waitForTimeout(500);
+await p.evaluate(()=>{__pc.startMatch();document.dispatchEvent(new Event('pointerlockerror'));});await p.waitForTimeout(1500);
+await p.evaluate(([w,s])=>{for(let i=0;i<60*31;i++)__pc.simStep(__pc.SIM_DT);const pl=__pc.player;pl.hp=1e6;pl.pos.x=40;pl.pos.z=28;pl.yaw=1.2;pl.pitch=0;__pc.VM.noHolster=true;pl.cur=s;pl.w[s].id=(w.includes('@')?__pc.wVariant(w.split('@')[0],{sight:w.split('@')[1].split('.')[0],barrel:w.split('@')[1].split('.')[1],grip:'none',laser:0}):w);},[wid,slot]);await p.waitForFunction(()=>__pc.WM&&__pc.WM.on,null,{timeout:240000,polling:500}).catch(()=>{});await p.waitForTimeout(500);
+await p.evaluate(s=>{window.__ST=s;},process.argv[5]||'reload');for(const f of fr){await p.evaluate(f=>{const r=__pc.FPV.cur,cl=__pc.FPV_CLIPS[r.k];const ST=window.__ST||'reload';const c=r.clips[cl[ST]];__pc.VM.force={st:ST,t:f*c.dur,};},f);await p.waitForTimeout(900);await p.screenshot({path:`shots/rel_${wid}_${process.argv[5]||'reload'}_${f}.png`});console.log(f);}
+console.log(errs.join('\n'));await b.close();})();
