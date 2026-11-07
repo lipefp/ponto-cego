@@ -255,9 +255,32 @@ function evalScript(code, name) {
 }
 
 /* ---------- sequência ---------- */
+/**
+ * Confere o que o jogo precisa antes de descompactar 20 MB. Devolve o motivo em português
+ * (ou null se está tudo certo), para o jogador saber o que ligar em vez de ver uma tela parada.
+ * @returns {string|null}
+ */
+function checkBrowser() {
+  if (typeof DecompressionStream === 'undefined' || typeof WebAssembly === 'undefined')
+    return 'Navegador antigo demais. O jogo precisa de Firefox 113 ou mais novo, Chrome ou Edge 100 ou mais novo.';
+  try {
+    (0, eval)('0');
+  } catch (e) {
+    return 'Uma extensão (NoScript, por exemplo) ou uma regra de segurança bloqueou o código do jogo. Libere esta página e recarregue.';
+  }
+  let gl = null;
+  try {
+    gl = document.createElement('canvas').getContext('webgl2');
+  } catch (e) {}
+  if (!gl)
+    return 'O WebGL2 está desligado ou bloqueado. Ative a aceleração por hardware, desligue a proteção contra rastreamento de impressão digital (resistFingerprinting) ou use Chrome ou Edge. Teste em get.webgl.org.';
+  return null;
+}
+
 async function main() {
-  if (typeof DecompressionStream === 'undefined') {
-    fail('Navegador antigo: atualize o Chrome, Edge ou Firefox.');
+  const why = checkBrowser();
+  if (why) {
+    fail(why);
     return;
   }
   const man = /** @type {PackInfo[]} */ (
