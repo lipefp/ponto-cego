@@ -16,9 +16,23 @@ O jogo é um único arquivo HTML. O motor 3D é o [Babylon.js](https://www.babyl
 - Modo online: o servidor roda a mesma simulação do jogo e os jogadores entram por uma fila
 
 
-## Jogar agora
+## Jogue online
 
-Uma cópia do jogo, com o modo online, roda em https://pontocego.duckdns.org. O servidor é pequeno e aceita uma partida por vez. Se ela estiver cheia ou lenta, tente mais tarde.
+**https://pontocego.duckdns.org**
+
+O jogo está no ar nesse endereço. Você abre no navegador, sem instalar nada, e escolhe como jogar:
+
+- **Offline, contra bots:** na aba Jogar, clique em Partida rápida. Tudo roda no seu computador. Depois de carregado, funciona sem internet.
+- **Online, com outras pessoas:** na aba Online, clique em Buscar partida. O servidor junta quem estiver na fila e, se não chegar gente suficiente em 20 segundos, completa as vagas com bots. Quando a partida é encontrada, você tem 15 segundos para aceitar. Cada partida é 5 contra 5, com até 10 jogadores.
+
+Para jogar com um amigo, os dois abrem o mesmo endereço e entram na fila ao mesmo tempo.
+
+Pontos importantes:
+- O modo online está em teste (beta). Pode ter erros, e o servidor pode estar fora do ar em alguns momentos.
+- O servidor é pequeno e roda **uma partida de cada vez**. Se já houver uma em andamento, a fila espera.
+- O jogo tem cerca de 20 MB. A primeira abertura demora um pouco, e depois o navegador guarda uma cópia.
+- Pelo que o código faz, o servidor não usa banco de dados nem grava arquivos. O estado da partida fica só na memória e some quando ela termina.
+- Você precisa de um navegador compatível (veja abaixo).
 
 ## Navegadores
 
@@ -65,6 +79,22 @@ Para gerar o pacote com Docker:
 Dentro da pasta gerada tem um README com os passos. Os jogadores abrem o endereço do servidor no
 navegador e a aba Online conecta sozinha. O servidor aceita até 10 jogadores por partida e completa
 as vagas com bots.
+
+Para rodar o seu próprio servidor, use qualquer máquina com Docker. O servidor que está no ar roda
+numa máquina gratuita da Oracle Cloud, com o Caddy na frente para ligar o HTTPS. O navegador exige
+HTTPS (wss) para conectar de uma página segura, então publicar só a porta 8080 não basta.
+
+Ajustes por variável de ambiente:
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `PORT` | 8080 | Porta do servidor |
+| `SERVER_NAME` | Ponto Cego | Nome mostrado no jogo |
+| `MAX_PLAYERS` | 10 | Jogadores por partida (1 a 10) |
+| `MAX_MATCHES` | 4 | Partidas ao mesmo tempo. Cada uma gasta processador e memória |
+| `QUEUE_WAIT_S` | 20 | Segundos de espera na fila antes de completar com bots |
+| `ACCEPT_S` | 15 | Segundos para aceitar a partida encontrada |
+| `BACK_TO_LOBBY_S` | 15 | Segundos na tela final antes de voltar ao lobby |
 
 ## Como foi feito
 
