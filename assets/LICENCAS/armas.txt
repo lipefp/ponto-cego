@@ -1,0 +1,9 @@
+ARMAS (src/render/12b-weapons.js) — origem e licença
+- (v5.2.2: Onça, Marimbondo, Boitatá e Pardal usam modelos 3D CC-BY — ver modelos_cc-by_v522.txt; a lista abaixo é histórica.)
+- Todos os 16 modelos de arma, miras, canos, empunhaduras e laser: geometria procedural escrita para este jogo
+  (perfis 2D extrudados com chanfro + peças torneadas), sem arquivos de terceiros.
+- Texturas PBR das armas (metal usinado/riscado, polímero granulado: albedo, normal, ORM) e o panorama de reflexo:
+  geradas em canvas no próprio jogo. Licença: as do projeto (código próprio).
+- Nomes das armas (P-9, Onça .45, Pardal 5.7, Abelha MP, Jaguar .44, Vespa, Marimbondo, Cascavel 45, K-7, Jararaca,
+  Tupã 7.62, Trovão, Ressaca, Falcão, Carcará, Boitatá): inventados; nenhuma marca, modelo ou nome real/Ubisoft.
+- Nenhum asset externo (CC0/CC-BY) foi usado nesta área.

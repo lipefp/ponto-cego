@@ -1,0 +1,6 @@
+Primeira pessoa (mãos, luvas e animações) — assets/fp_rifle.bin, fp_pistol.bin, fp_anim.json
+Autor: BarcodeGames (Fab.com) — pacotes gratuitos de mãos/luvas esqueletadas e animações em 1ª pessoa (M4 e Glock 17).
+Licença: Fab Standard License (uso em jogos/produtos permitido; redistribuição do conteúdo bruto não).
+Derivação: só as malhas das mãos/luvas (Hand_Mesh, pele + luva), o esqueleto e as curvas de animação (Reload, Reload_Empty,
+Fire, Draw, Holster) foram aproveitados; as malhas das armas M4/Glock do pacote NÃO são distribuídas. Texturas reduzidas
+(pele 1024 px JPEG, luva 512 px PNG) e geometria comprimida com meshopt. As armas do jogo seguem procedurais.

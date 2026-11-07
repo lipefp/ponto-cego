@@ -1,0 +1,13 @@
+Área MAPA — origem e licença do conteúdo (v3.7, 08/10/2026)
+
+Nada externo foi adicionado nesta etapa. Tudo abaixo é GERADO por código do próprio projeto (src/render/11-world.js),
+sem arquivo de asset (custo em bytes ≈ só o código):
+- Céu de fim de tarde: shader procedural (gradiente + halo/disco do sol + nuvens fbm). Gerado.
+- Janelas (caixilho, vidro quebrável, grade, peitoril) e "casca de sombra": geometria procedural. Gerado.
+- Piso de carvalho 'oakfloor' (albedo/normal/ORM): textura procedural por pixel. Gerado.
+- Ambientação (rodapés, tomadas, quadros, mural de avisos, planta de evacuação, eletrodutos, eletrocalha,
+  papéis no chão, faixa de sujeira na base das paredes): geometria + atlas em canvas 512 px. Gerado.
+
+Assets do mapa já existentes (inalterados), ver os outros arquivos desta pasta:
+- assets/office.glb — Kenney "Furniture Kit" (CC0) — kenney-furniture-kit.txt
+- assets/gadgets.glb — Kenney "Weapon Pack" (CC0) — kenney-weapon-pack.txt

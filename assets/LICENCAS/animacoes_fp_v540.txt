@@ -1,0 +1,8 @@
+Creditos - Ponto Cego, animacoes em primeira pessoa (v5.4.0)
+
+"Arms throwing" by bumstrum (DJMaesen, "FP Arms") - https://sketchfab.com/3d-models/1f9a5c717aae4d0f9b77232b7da4b875 - CC-BY 4.0
+   (jogo: arremesso de granada e uso de gadget em 1a pessoa; so as curvas de animacao dos bracos foram reaproveitadas e adaptadas ao esqueleto do jogo)
+
+Pacote adicional de animacoes recebido (CC-BY 4.0; ainda nao usado nesta versao, creditos preservados para a integracao das recargas):
+ccransh (FPS AK-74m / pistol / sniper rifle / SMG / Benelli M4 / Makarov / Animated FPS hands rifle), 1Matzh (9mm Pistol / Fists / UZI), bumstrum (FP Arms), BarcodeGames (M4 FPS Weapon Animations).
+Detalhes e links por arquivo: ver CREDITOS.txt do pacote anims_fps.zip.

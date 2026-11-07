@@ -1,0 +1,24 @@
+Área ÁUDIO — origem e licença (v4.2)
+
+Nenhum arquivo de som está embutido. Todos os sons são SINTETIZADOS por código (src/render/14-audio.js): código próprio do projeto,
+sem amostras de terceiros. Reverbs = respostas de impulso geradas por código.
+
+Quando amostras reais forem adicionadas (assets/au_*.wav|ogg|…), liste AQUI cada arquivo:
+  arquivo | autor/fonte | licença (CC0 / CC-BY + crédito) | URL
+
+(Pacotes Sonniss do usuário: sem armas/passos utilizáveis — não usados.)
+
+AMOSTRAS (v4.3) — enviadas pelo usuário (pacote "Free Sounds Pack"/"Sons", itch.io, placeholder-assets / "50 Free Sounds Pack"; confirmar a licença na página do pacote antes de distribuir):
+  au_gun_* (pistola/fuzil: pitch variado a partir de "Weapon Discharge - Pistol/Shotgun or Rifle", "Gunshot 1-1", "Gunshot 7-1")
+  au_boom_* ("Explosion 1-3", "Explosion Large 1-1", "Explosion Medium 2-1")
+  au_step_{metal,concrete,tile,gravel}_*, au_impact_{flesh,metal,hard,brick,floor}_* ("Footstep/Impact - …")
+  au_door_* ("Door Open/Close 4-1"), au_ui_1 ("UI - Beep - 1")
+O restante continua sintetizado por código. Os tiros usam amostra + camada sintética de corpo/grave.
+
+v4.5 — "Free Sounds Pack" (placeholder-assets / Place Holder Assets, itch.io), enviado pelo usuário.
+  Licença (resposta do autor na página): "royalty-free license for use in games and other projects", uso e edição permitidos inclusive em
+  projetos comerciais; NÃO pode ser revendido, redistribuído, sublicenciado nem incluído em outra biblioteca/pacote de sons (vale para versões
+  editadas). Não é CC0. Sem exigência de crédito declarada. Autoria permanece com Place Holder Assets. → As amostras vão EMBUTIDAS no jogo
+  (convertidas p/ ogg mono); não distribuir os arquivos de som soltos nem o pacote original.
+  au_wall_1..3 (Rock Impact 11, Rock Impact 37, Rock Large Debris 1-3) · au_swing_1..2 (Whoosh 1-1, 4-1) · au_draw_1 (Draw Weapon Metal 1-1)
+  au_impact_floor_4 (Wood 14-8) · au_impact_metal_4 (Shield Metal Impact 1-3) · au_door_3 (Wood and Door Creak 01) · au_amb_wind_1 (Ambient Wind Loop 1)

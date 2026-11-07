@@ -1,0 +1,15 @@
+Creditos - Ponto Cego (todos CC-BY 4.0: https://creativecommons.org/licenses/by/4.0/)
+
+"Remington 870 Police Magnum 12 Gauge Shotgun" by haoliu95 - https://sketchfab.com/3d-models/eea11de7e9d24b6683962b8388c319eb - CC-BY 4.0
+"M4 Super 90 (JW2) Brand-Friendly version" by haoliu95 - https://sketchfab.com/3d-models/7e472e24152246708cac8b6f1613c7a8 - CC-BY 4.0
+"357 Python Revolver (Rigged/Game Ready)" by InfuriatingScholar - https://sketchfab.com/3d-models/3b81c991e9c84236a5c03895f9ca0aa3 - CC-BY 4.0
+"HK UMP-45" by ecler - https://sketchfab.com/3d-models/3d24cb9e55cc4c06bd3b2de18e37bbb3 - CC-BY 4.0
+"Škorpion vz. 61" by kutejnikov - https://sketchfab.com/3d-models/07bc7764f1d2460586c2907ff7f32753 - CC-BY 4.0
+"M69 Frag Grenade" by rileylewandowski - https://sketchfab.com/3d-models/e94d90f68bdb4fd68d7a0aac6d9c5dd0 - CC-BY 4.0
+"RGH-05" by yarogor - https://sketchfab.com/3d-models/de8ca63ce9dd4133a2e4f35f5083e447 - CC-BY 4.0
+"C4, Explosive, Device" by Tnkii - https://sketchfab.com/3d-models/1136e57481274df78877d323cf7e730a - CC-BY 4.0
+"Mini Dron UGV" by Viktor.Zhuravlev - https://sketchfab.com/3d-models/e1328f6a1d1a43f3b29535b4340dfc97 - CC-BY 4.0
+"ballistic shield" by sanyaork - https://sketchfab.com/3d-models/142c4ec45e3b403d8d0104e3150efb14 - CC-BY 4.0
+"Barbed wire wooden - 2PART" by ahmagh2e - https://sketchfab.com/3d-models/0b8ae84babcf402ebc55e1b55d4a84a3 - CC-BY 4.0
+"Pelican Case Game Ready" by polbrainstorm - https://sketchfab.com/3d-models/39d2111d3ef040cb918d31023ad14bab - CC-BY 4.0
+(Modificados: escala, orientação, separação de peças, texturas reduzidas e recomprimidas. Uso no jogo: 870=Trovão, M4 Super 90=Ressaca, Python=Jaguar .44, UMP-45=Cascavel 45, Škorpion=Abelha MP, M69=Granada, RGH-05=Granada de impacto, C4=Carga de brecha, Mini Dron UGV=Drone, ballistic shield=Escudo móvel, Barbed wire=Arame farpado, Pelican Case=Desativador.)
