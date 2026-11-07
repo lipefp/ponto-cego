@@ -1,0 +1,11 @@
+node_modules/
+dist/
+shots/
+referencias/
+*.zip
+*.log
+*.key
+*.pem
+.env
+__pycache__/
+.DS_Store
