@@ -68,7 +68,7 @@ const WMOD = {
           dy = hg.min.y - g.max.y + 0.004;
         L.extra.push('Front grip vert Unreal');
         L.extraOff['Front grip vert Unreal'] = [0, dy, 0];
-        L.fore = [0, g.min.y + dy + 0.035, (g.min.z + g.max.z) / 2 - 0.05];
+        L.fore = [0, g.min.y + dy + 0.055, (g.min.z + g.max.z) / 2 - 0.05];
         L.hold = 'vert';
       } /* beta.8: o punho cai sobre a empunhadura (antes ficava atrás dela) */
       else if (att.grip === 'ang') {

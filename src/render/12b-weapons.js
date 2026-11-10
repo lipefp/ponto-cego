@@ -1786,7 +1786,8 @@ function wFore(W, kind, z, y, info, hy) {
     if (!W.low)
       for (let i = 0; i < 4; i++)
         W.ring(0.0157, 0.0012, 0, y - 0.026 - i * 0.012, z, { ax: 'y', m: 'P', c: '#141516' });
-    info.fore.set(0, y - 0.08, z);
+    /* a mão segura a parte de cima da empunhadura, encostada no guarda-mão (antes ficava na ponta de baixo) */
+    info.fore.set(0, y - 0.055, z);
     info.hold = 'vert';
   } else if (kind === 'ang') {
     W.prism(
