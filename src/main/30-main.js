@@ -194,7 +194,7 @@ Object.assign(HOOK, {
     VM.shake = Math.max(VM.shake, 0.45);
   },
   hitmark(head, kill) {
-    hitmark(head);
+    hitmark(head, kill);
     playSound('hit', null, { head, kill });
   },
   agentKilled(v, att, wname, head) {

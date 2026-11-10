@@ -1460,6 +1460,28 @@ function updateVM(dt) {
   if (shot) VM.fireT = 0;
   else if (VM.fireT >= 0) VM.fireT += dt * 3;
   const sp = Math.hypot(a.vel.x, a.vel.z);
+  /* arma viva: inclina ao andar de lado, recua um pouco ao avançar, afunda numa parada brusca, e o recuo volta com mola */
+  {
+    const cy = Math.cos(a.yaw),
+      sy = Math.sin(a.yaw),
+      lat = a.vel.x * cy - a.vel.z * sy,
+      fwd = -a.vel.x * sy - a.vel.z * cy,
+      e = 1 - Math.exp(-dt * 8);
+    VM.latK += (clamp(lat / 4, -1, 1) - VM.latK) * e;
+    VM.fwdK += (clamp(fwd / 4, -1, 1) - VM.fwdK) * e;
+    const brake = dt > 0 ? (VM.spPrev - sp) / dt : 0;
+    if (brake > 12) VM.stopDip = Math.max(VM.stopDip, clamp(brake / 40, 0, 1));
+    VM.stopDip = Math.max(0, VM.stopDip - dt * 5);
+    VM.spPrev = sp;
+    if (shot) VM.rsv += 0.34;
+    const n = Math.max(1, Math.ceil(dt / 0.008)),
+      h = dt / n;
+    for (let i = 0; i < n; i++) {
+      VM.rsv += (-230 * VM.rsx - 15 * VM.rsv) * h;
+      VM.rsx += VM.rsv * h;
+    }
+    VM.rsx = clamp(VM.rsx, -0.05, 0.05);
+  }
   if (a.onGround) VM.bobT += dt * sp * 1.55;
   const bob = SAVE.bob ? clamp(sp / 5, 0, 1) * (1 - a.ads * 0.85) : 0;
   {
@@ -1469,7 +1491,7 @@ function updateVM(dt) {
     VM.swayY *= dm;
   } /* inclinado: a arma fica travada no eixo da câmera (sem balanço do mouse) */
   const PO = vmPose(VM.info),
-    ads = smooth(a.ads),
+    ads = easeAds(clamp(a.ads, 0, 1)),
     sg = VM.info.sight,
     gp = VM.info.grip,
     fk = vmFovK(),
@@ -1494,6 +1516,12 @@ function updateVM(dt) {
     dr * 0.3 -
     a.crouchK * 0.01 * (1 - ads);
   p.z += VM.kick * (0.035 - 0.015 * ads);
+  {
+    const lv = 1 - ads * 0.8;
+    p.x -= VM.latK * 0.007 * lv;
+    p.z += VM.fwdK * 0.006 * lv;
+    p.y -= VM.stopDip * 0.012 * lv;
+  }
   /* respiração (parado) */
   const br = (1 - bob) * (1 - ads * 0.6);
   p.y += Math.sin(VM.clk * 1.6) * 0.0016 * br;
@@ -1515,6 +1543,8 @@ function updateVM(dt) {
       Math.sin(VM.clk * 1.6 + 1) * 0.0025 * br,
     ry = PO.rot[1] * r0 * hand + VM.swayX + 0.75 * sk * hand,
     rz = PO.rot[2] * r0 * hand + 0.35 * sk * hand;
+  rx += VM.rsx * (1 - 0.55 * ads) + VM.stopDip * 0.03 * (1 - ads);
+  rz -= VM.latK * 0.055 * (1 - ads * 0.75);
   const rp = a.reloadT > 0 ? 1 - a.reloadT / wd.reload : 0;
   if (!fp) {
     const rs = Math.sin(Math.PI * rp);

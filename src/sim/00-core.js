@@ -16,6 +16,8 @@ const angDiff = (a, b) => {
   return d;
 };
 const smooth = (t) => t * t * (3 - 2 * t);
+/* entrada na mira: sai rápido e assenta no fim (metade curva suave, metade desaceleração) */
+const easeAds = (t) => 0.5 * t * t * (3 - 2 * t) + 0.5 * (1 - (1 - t) * (1 - t) * (1 - t));
 function mulberry(a) {
   return function () {
     a |= 0;

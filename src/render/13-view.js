@@ -25,6 +25,12 @@ const VM = {
   swayX: 0,
   swayY: 0,
   shake: 0,
+  latK: 0 /* andar de lado: a arma inclina para o lado do movimento */,
+  fwdK: 0,
+  spPrev: 0,
+  stopDip: 0 /* parada brusca: a arma afunda e volta */,
+  rsx: 0 /* mola do recuo (posição e velocidade): sobe no tiro e volta passando um pouco do ponto */,
+  rsv: 0,
 };
 const VM_S = 0.36;
 function vmMeshes(node) {
@@ -87,7 +93,7 @@ function updateCamera(dt) {
       camera.rotation.y = yw;
     }
     const wd = WEAPONS[curW(a).id];
-    setFov(SAVE.fov * (1 + (wd.zoom - 1) * smooth(a.ads)));
+    setFov(SAVE.fov * (1 + (wd.zoom - 1) * easeAds(a.ads)));
   } else {
     camMode = 'spec';
     camera.rotationQuaternion = null;

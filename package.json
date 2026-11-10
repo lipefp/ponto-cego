@@ -1,6 +1,6 @@
 {
   "name": "ponto-cego",
-  "version": "6.0.0-beta.11",
+  "version": "6.0.0-beta.12",
   "private": false,
   "description": "Ponto Cego: FPS tático 5v5 no navegador (Babylon.js), com bots e modo online.",
   "scripts": {

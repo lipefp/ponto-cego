@@ -700,9 +700,11 @@ function feedLine(att, v, wname, head) {
 }
 let hitT = 0,
   hurtT = 0;
-function hitmark(head) {
-  hitT = 0.18;
-  for (const b of HUD.hitBars) b.background = head ? PAL.danger : '#fff';
+let hitK = false;
+function hitmark(head, kill) {
+  hitK = !!kill;
+  hitT = kill ? 0.34 : 0.18;
+  for (const b of HUD.hitBars) b.background = head || kill ? PAL.danger : '#fff';
 }
 function hurtFrom(att) {
   hurtT = 0.55;
@@ -923,7 +925,13 @@ function updateHUD(dt) {
   HUD.scope.isVisible = p.alive && !pilot && !!d.ovl && p.ads > 0.85;
   HUD.flash.alpha = p.blindT > 0 ? Math.min(1, p.blindT / Math.max(0.8, p.blindMax * 0.5)) : 0;
   hitT -= dt;
-  HUD.hit.alpha = hitT > 0 ? 1 : 0;
+  /* marca de acerto: aparece maior e encolhe; no abate é vermelha, maior e dura mais */
+  {
+    const d = hitK ? 0.34 : 0.18,
+      k = clamp(hitT / d, 0, 1);
+    HUD.hit.alpha = hitT > 0 ? Math.min(1, k * 2.5) : 0;
+    HUD.hit.scaleX = HUD.hit.scaleY = (hitK ? 1.35 : 1) * (1 + 0.45 * k * k);
+  }
   hurtT -= dt;
   HUD.hurt.alpha = Math.max(0, hurtT * 1.5);
   HUD.dir.alpha = Math.max(0, hurtT * 2);

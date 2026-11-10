@@ -27,6 +27,17 @@ const MV = {
   STOP: 3.0,
   GRAV: 18,
 }; /* v5.4.1: arranca em ~60 ms e para em ~140 ms (antes ~105 ms / ~350 ms: sensação de atraso) */
+const SPRINT_OUT = {
+  pistol: 0.12,
+  rev: 0.14,
+  mp: 0.14,
+  smg: 0.16,
+  ar: 0.2,
+  sg: 0.2,
+  sgs: 0.22,
+  dmr: 0.24,
+  lmg: 0.3,
+};
 function accelerate(v, wx, wz, wish, acc, dt) {
   const cur = v.x * wx + v.z * wz,
     add = wish - cur;
@@ -96,7 +107,8 @@ function stepAgentInput(a, I, dt, moveOnly) {
     !a.act &&
     a.onGround &&
     Math.abs(a.lean) < 0.1;
-  if (a.sprint && !wantSprint) a.sprintOut = 0.2;
+  /* voltar da corrida para o tiro depende do peso da arma (pistola quase na hora, metralhadora demora) */
+  if (a.sprint && !wantSprint) a.sprintOut = SPRINT_OUT[WEAPONS[curW(a).id].cls] || 0.2;
   a.sprint = wantSprint;
   /* mirar (botão direito): tempo depende da arma */
   const canAds = I.ads && a.reloadT <= 0 && !a.act && a.meleeCD < 0.3 && !a.sprint;
