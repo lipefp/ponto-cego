@@ -101,6 +101,19 @@ Object.assign(HOOK, {
     if (PHYS) PHYS.refreshAll();
     radarDirty = true;
   },
+  /* online: redesenha paredes, portas e janelas pelo estado atual (depois de voltar de uma queda de conexão) */
+  resync() {
+    for (const w of WALLS) {
+      setReinforcedMesh(w, !!w.reinforced);
+      refreshWall(w, false);
+    }
+    panelInt.thinInstanceBufferUpdated('matrix');
+    panelExt.thinInstanceBufferUpdated('matrix');
+    for (const d of DOORS) d.mesh.setEnabled(d.hp > 0);
+    if (typeof setWinPane === 'function') for (const w of WINS) setWinPane(w, !w.broken);
+    if (PHYS) PHYS.refreshAll();
+    radarDirty = true;
+  },
   panelBroken(w, i, pt) {
     panelMatrix(w, i);
     w.mesh.thinInstanceBufferUpdated('matrix');
@@ -388,7 +401,8 @@ function toMenu(keep) {
   if (MP.role === 'guest') {
     if (keep !== true) onlineSendJSON({ t: 'leavematch' });
     mpClientLeave();
-    if (ON.ws) ON.st = 'idle';
+    if (ON.ws && ON.st !== 'retry') ON.st = 'idle';
+    if (keep !== true) onlineToken('');
     menuTab = 'online';
   }
   G.phase = 'menu';
@@ -673,7 +687,7 @@ engine.runRenderLoop(() => {
     let n = 0;
     while (acc >= SIM_DT && n < 6) {
       (player._pp || (player._pp = new V3())).copy(player.pos);
-      mpClientStep(SIM_DT, onlineSend, !paused);
+      mpClientStep(SIM_DT, onlineSend, !paused && ON.st === 'match');
       acc -= SIM_DT;
       n++;
     }

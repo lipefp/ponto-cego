@@ -2,11 +2,15 @@
    MULTIPLAYER — servidor autoritativo + clientes (só roda se MP.role != null)
    - O SERVIDOR (Node, pasta server/) roda esta mesma simulação sem tela. Cada humano
      controla um agente (A0–A4 time A, B0–B4 time B); as vagas sem humano ficam com bots.
-   - O CLIENTE envia um comando (28 bytes, 06-net.js) a cada passo de 60 Hz e recebe
+   - O CLIENTE envia um comando (32 bytes, 06-net.js) a cada passo de 60 Hz e recebe
      snapshots (20 Hz) + eventos (tiros, sons, explosões…). Ele prevê só o próprio movimento
      (stepAgentInput com moveOnly) e corrige com o que o servidor confirmou (ack + repetição
-     dos comandos que o servidor ainda não viu). Os outros jogadores são extrapolados e
-     suavizados.
+     dos comandos que o servidor ainda não viu). Os outros jogadores aparecem ~100 ms no
+     passado, interpolados entre dois snapshots (movimento liso mesmo com a rede oscilando).
+   - COMPENSAÇÃO DE ATRASO: cada comando diz qual passo do servidor o jogador estava vendo (vt).
+     O servidor guarda ~1 s de posições e confere o tiro contra a posição daquele passo
+     (no máximo 0,35 s para trás). Quem acerta na própria tela, acerta no servidor.
+   - RECONEXÃO: quem cai vira bot (vivo) e a vaga fica guardada; ao voltar, reassume o boneco.
    - Eventos: o servidor não tem tela; os ganchos HOOK viram eventos enviados aos clientes.
      Cada evento pode ter destino (to = id do agente) — ferimento, marcador de acerto, cegueira.
    Nada aqui é usado no modo solo (MP.role === null).
@@ -30,7 +34,20 @@ const MP = {
   sig: '',
   lastA: null,
   lastG: null,
+  hist: null /* servidor: anel de posições por agente (compensação de atraso) */,
+  histMin: 0,
+  lcTick: 0 /* > 0 enquanto um tiro de humano é conferido no passado */,
+  rewSum: 0,
+  rewN: 0,
+  st: null /* cliente: passo do servidor estimado agora */,
+  jit: 0,
+  rt: 0 /* cliente: passo em que os outros bonecos estão sendo mostrados */,
+  resync: false,
 };
+const MP_HN = 64 /* passos guardados (1,07 s) */,
+  MP_HF = 7,
+  MP_REW_MAX = 21 /* volta no máximo 0,35 s */,
+  MP_INTERP = 6; /* atraso de exibição dos outros: 2 snapshots (100 ms) */
 const MP_EDGE =
   NET_BTN.vault | NET_BTN.reload | NET_BTN.gadget | NET_BTN.melee | NET_BTN.ping | NET_BTN.jump;
 const MP_FORCE = new Set(['roundStart', 'agentSpawn', 'structuresReset', 'matchOver', 'roundEnd']);
@@ -96,6 +113,42 @@ function mpEv(to, name, ...args) {
   if (MP.evq.length > 800) return;
   MP.evq.push({ n: name, to, a: args.map((x) => netSer(x, mpRefs(), 1)) });
   if (MP_FORCE.has(name)) MP.forceSnap = true;
+  if (name === 'roundStart')
+    MP.histMin = NET.tick + 1; /* rodada nova: ninguém é conferido na posição da rodada anterior */
+}
+/* ---------- compensação de atraso (servidor) ---------- */
+function mpHistRecord() {
+  if (!MP.hist) MP.hist = agents.map(() => new Float32Array(MP_HN * MP_HF));
+  const k = (NET.tick % MP_HN) * MP_HF;
+  for (const a of agents) {
+    const h = MP.hist[a.id];
+    h[k] = a.pos.x;
+    h[k + 1] = a.pos.y;
+    h[k + 2] = a.pos.z;
+    h[k + 3] = a.yaw;
+    h[k + 4] = a.lean || 0;
+    h[k + 5] = a.crouchK;
+    h[k + 6] = a.alive ? 1 : 0;
+  }
+}
+const _lc = { x: 0, y: 0, z: 0, yaw: 0, lean: 0, ck: 0 };
+/* posição do agente e no passo MP.lcTick (null = usa a atual) */
+function mpLcState(e) {
+  if (e.id === MP.inRem || !MP.hist) return null;
+  const t = MP.lcTick,
+    t0 = Math.floor(t),
+    f = t - t0,
+    h = MP.hist[e.id],
+    i0 = (t0 % MP_HN) * MP_HF,
+    i1 = ((t0 + 1) % MP_HN) * MP_HF;
+  if (h[i0 + 6] < 0.5 || (f > 0 && h[i1 + 6] < 0.5)) return null;
+  _lc.x = h[i0] + (h[i1] - h[i0]) * f;
+  _lc.y = h[i0 + 1] + (h[i1 + 1] - h[i0 + 1]) * f;
+  _lc.z = h[i0 + 2] + (h[i1 + 2] - h[i0 + 2]) * f;
+  _lc.yaw = h[i0 + 3];
+  _lc.lean = h[i0 + 4] + (h[i1 + 4] - h[i0 + 4]) * f;
+  _lc.ck = h[i0 + 5] + (h[i1 + 5] - h[i0 + 5]) * f;
+  return _lc;
 }
 /* ---------- servidor ---------- */
 const MP_BCAST = [
@@ -133,6 +186,9 @@ function mpServerInit() {
   MP.evq.length = 0;
   MP.forceSnap = false;
   MP.snapN = 0;
+  MP.hist = null;
+  MP.histMin = 0;
+  MP.lcTick = 0;
   for (const a of agents) {
     a.isPlayer = false;
     a.bot = true;
@@ -216,7 +272,31 @@ function mpUpdateInfo(idx, info) {
   r.a.name = r.info.name;
   r.a.skins = r.info.skins;
 }
-/* sai da partida: o agente morre na hora (não deixa o time com um boneco parado) e volta a ser bot na próxima rodada */
+/* a conexão caiu ou o jogador saiu: um bot assume o boneco na hora, vivo (o time não fica com um a menos).
+   Se o jogador voltar, mpAddHuman devolve o controle. */
+function mpDetachHuman(idx) {
+  const a = agents[idx];
+  MP.rems.delete(idx);
+  if (!a) return;
+  a.rem = false;
+  a.isPlayer = false;
+  a.bot = true;
+  a.act = null;
+  AI.adopt(a);
+}
+/* média de passos voltados na compensação de atraso desde a última leitura (para o log do servidor) */
+function mpNetStats() {
+  const o = { rew: MP.rewN ? MP.rewSum / MP.rewN : 0, n: MP.rewN };
+  MP.rewSum = MP.rewN = 0;
+  return o;
+}
+/* próximo snapshot vai completo (alguém acabou de voltar para a partida) */
+function mpForceFull() {
+  MP.forceSnap = true;
+  MP.lastA = null;
+  MP.sig = '';
+}
+/* fim da partida: o agente morre na hora e volta a ser bot */
 function mpRemoveHuman(idx) {
   const a = agents[idx];
   MP.rems.delete(idx);
@@ -235,9 +315,10 @@ function mpRemoveHuman(idx) {
 }
 function mpRecvCmd(idx, u8) {
   const r = MP.rems.get(idx);
-  if (!r || !u8 || u8.length < 28) return;
+  if (!r || !u8 || u8.length < NET_CMD_BYTES) return;
   const c = decodeCmd(u8);
   if (!isFinite(c.yaw + c.pitch) || c.t <= r.lastT) return;
+  if (!isFinite(c.vt)) c.vt = 0;
   c.fwd = clamp(c.fwd, -1, 1);
   c.side = clamp(c.side, -1, 1);
   c.lean = clamp(c.lean, -1, 1);
@@ -304,10 +385,23 @@ function remoteStep(r, dt) {
   const y0 = a.yaw,
     p0 = a.pitch;
   MP.inRem = a.id;
+  /* tiros deste passo são conferidos contra o que o jogador via (vt), limitado a MP_REW_MAX passos */
+  const n1 = NET.tick - 1;
+  MP.lcTick = 0;
+  if (c.vt > 0 && MP.hist && !r.starve) {
+    const lo = Math.max(n1 - MP_REW_MAX, MP.histMin, n1 - MP_HN + 2, 1);
+    const t = clamp(c.vt, lo, n1);
+    if (lo <= n1 && t < n1 - 0.01) {
+      MP.lcTick = t;
+      MP.rewSum += n1 - t;
+      MP.rewN++;
+    }
+  }
   try {
     stepAgentInput(a, mpCmdToI(c), dt, false);
   } finally {
     MP.inRem = -1;
+    MP.lcTick = 0;
   }
   r.rp += a.pitch - p0;
   r.ry += a.yaw - y0;
@@ -319,6 +413,7 @@ function remoteStepAll(dt) {
 function mpServerStep(dt) {
   NET.tick++;
   simStep(dt);
+  mpHistRecord();
   MP.snapN++;
   const due = MP.snapN >= MP.snapEvery || MP.forceSnap;
   if (!due && !MP.evq.length) return null;
@@ -404,10 +499,91 @@ function mpClientInit(gi) {
   MP.lastAck = 0;
   mpFixRoles();
   G.autoplay = false;
+  MP.st = null;
+  MP.jit = 0;
+  MP.rt = 0;
   for (const a of agents) {
-    a._S = null;
-    a._ofs = null;
+    a._hb = null;
     a._B = null;
+  }
+}
+/* ---------- cliente: relógio do servidor e interpolação dos outros bonecos ---------- */
+/* chegou um snapshot do passo t: ajusta devagar a estimativa do passo atual do servidor (absorve a oscilação da rede) */
+function mpClock(t) {
+  if (MP.st == null) {
+    MP.st = t;
+    MP.jit = 0;
+    return;
+  }
+  const err = t - MP.st;
+  if (Math.abs(err) > 30) MP.st = t;
+  else {
+    MP.st += err * 0.1;
+    MP.jit += (Math.abs(err) - MP.jit) * 0.1;
+  }
+}
+/* atraso de exibição: 100 ms + folga proporcional à oscilação medida (até 250 ms) */
+function mpDelay() {
+  return MP_INTERP + Math.min(9, MP.jit * 2);
+}
+function mpPushSample(o, t) {
+  const b = o._hb || (o._hb = []),
+    last = b[b.length - 1];
+  if (last && t <= last.t) return;
+  if (last) {
+    const dx = o.pos.x - last.x,
+      dy = o.pos.y - last.y,
+      dz = o.pos.z - last.z;
+    if (dx * dx + dy * dy + dz * dz > 9 || last.alive !== o.alive)
+      b.length = 0; /* nasceu de novo ou foi levado para longe: não desliza até lá */
+  }
+  b.push({
+    t,
+    x: o.pos.x,
+    y: o.pos.y,
+    z: o.pos.z,
+    yaw: o.yaw,
+    pitch: o.pitch,
+    ck: o.crouchK,
+    lean: o.lean || 0,
+    alive: o.alive,
+    vx: o.vel.x,
+    vz: o.vel.z,
+  });
+  if (b.length > 24) b.shift();
+}
+/* põe cada boneco remoto na posição do passo MP.rt (entre duas amostras; sem amostra nova, segue a velocidade por até 0,2 s) */
+function mpInterp() {
+  const rt = MP.rt;
+  for (const o of agents) {
+    const b = o._hb;
+    if (o === player || !b || !b.length) continue;
+    let i = b.length - 1;
+    while (i > 0 && b[i].t > rt) i--;
+    const s0 = b[i],
+      s1 = b[i + 1];
+    if (s1 && rt >= s0.t) {
+      const f = (rt - s0.t) / (s1.t - s0.t);
+      o.pos.set(s0.x + (s1.x - s0.x) * f, s0.y + (s1.y - s0.y) * f, s0.z + (s1.z - s0.z) * f);
+      o.yaw = s0.yaw + angDiff(s1.yaw, s0.yaw) * f;
+      o.pitch = s0.pitch + (s1.pitch - s0.pitch) * f;
+      o.crouchK = s0.ck + (s1.ck - s0.ck) * f;
+      o.lean = s0.lean + (s1.lean - s0.lean) * f;
+    } else {
+      let e = 0;
+      if (!s1 && rt > s0.t && i > 0) {
+        const p = b[i - 1];
+        if (Math.abs(p.x - s0.x) + Math.abs(p.z - s0.z) > 1e-3)
+          e =
+            Math.min(rt - s0.t, 12) *
+            SIM_DT; /* parado contra a parede tem velocidade mas não anda: não extrapola */
+      }
+      o.pos.set(s0.x + s0.vx * e, s0.y, s0.z + s0.vz * e);
+      o.yaw = s0.yaw;
+      o.pitch = s0.pitch;
+      o.crouchK = s0.ck;
+      o.lean = s0.lean;
+    }
   }
 }
 function mpClientLeave() {
@@ -418,9 +594,10 @@ function mpClientLeave() {
     a.rem = false;
     a.bot = true;
     a.isPlayer = false;
-    a._S = null;
-    a._ofs = null;
+    a._hb = null;
+    a._B = null;
   }
+  MP.st = null;
   agents[0].isPlayer = true;
   agents[0].bot = false;
   player = agents[0];
@@ -445,23 +622,22 @@ function mpClientRecv(pk, hdr) {
     yaw = me.yaw,
     pitch = me.pitch;
   if (pk.s) {
+    /* o delta só traz o que mudou: antes de aplicar, cada boneco volta ao último estado que o servidor mandou
+       (o que está na tela é a posição interpolada, não a do servidor) */
     for (const o of agents)
-      if (o !== me && o._S) {
-        o._vx = o.pos.x;
-        o._vy = o.pos.y;
-        o._vz = o.pos.z;
-        o._vyaw = o.yaw;
-        o._vpitch = o.pitch;
-        o._had = true;
-        if (o._B) {
-          o.pos.copy(o._B);
-          o.yaw = o._Byaw;
-          o.pitch = o._Bpitch;
-        }
-      } else
-        o._had = false; /* o delta só traz quem mudou: parte da posição do servidor, não da posição extrapolada */
+      if (o !== me && o._B) {
+        o.pos.copy(o._B);
+        o.yaw = o._Byaw;
+        o.pitch = o._Bpitch;
+        o.crouchK = o._Bck;
+        o.lean = o._Blean;
+      }
     restoreSnapshot(pk.s);
     mpFixRoles();
+    if (MP.resync && pk.s.walls) {
+      MP.resync = false;
+      HOOK.resync(); /* voltou de uma queda de conexão: paredes, portas e janelas são redesenhadas pelo estado */
+    }
     if (G.planted && !MP.dev) {
       MP.dev = true;
       HOOK.deviceAdd(G.planted);
@@ -469,29 +645,19 @@ function mpClientRecv(pk, hdr) {
       MP.dev = false;
       HOOK.deviceRemove();
     }
+    mpClock(pk.t);
     for (const o of agents) {
       if (o === me) continue;
-      if (!o._S) o._S = new V3();
       if (!o._B) o._B = new V3();
-      o._still = o._had && Math.abs(o._B.x - o.pos.x) + Math.abs(o._B.z - o.pos.z) < 1e-3;
       o._B.copy(o.pos);
       o._Byaw = o.yaw;
       o._Bpitch = o.pitch;
-      o._S.copy(o.pos);
-      o._Syaw = o.yaw;
-      o._Spitch = o.pitch;
-      if (o._had && o.alive) {
-        const dx = o._vx - o.pos.x,
-          dy = o._vy - o.pos.y,
-          dz = o._vz - o.pos.z;
-        if (dx * dx + dy * dy + dz * dz < 9) {
-          if (!o._ofs) o._ofs = new V3();
-          o._ofs.set(dx, dy, dz);
-          o._oyaw = angDiff(o._vyaw, o.yaw);
-          o._opitch = o._vpitch - o.pitch;
-        } else o._ofs = null;
-      } else o._ofs = null;
+      o._Bck = o.crouchK;
+      o._Blean = o.lean || 0;
+      mpPushSample(o, pk.t);
     }
+    MP.rt = MP.st - mpDelay();
+    mpInterp();
     player.yaw = yaw;
     player.pitch = pitch;
     if (hdr) {
@@ -527,7 +693,7 @@ function mpClientRecv(pk, hdr) {
       }
     }
 }
-/* um passo local do cliente (60 Hz): envia o comando, prevê o próprio movimento e extrapola/suaviza os outros */
+/* um passo local do cliente (60 Hz): envia o comando, prevê o próprio movimento e interpola os outros */
 function mpClientStep(dt, send, live) {
   const a = player;
   if (live) {
@@ -547,25 +713,10 @@ function mpClientStep(dt, send, live) {
     if (MP.pend.length > 180) MP.pend.shift();
     send(encodeCmd(c));
   } /* menu aberto/pausado: segue mandando comandos neutros (o servidor não deixa o boneco "andando sozinho") */
-  const k = Math.exp(-dt * 11);
-  for (const o of agents) {
-    if (o === a) continue;
-    if (o._S && o.alive) {
-      if (!o._still) {
-        o._S.x += o.vel.x * dt;
-        o._S.z += o.vel.z * dt;
-      }
-      if (o._ofs) {
-        o._ofs.multiplyScalar(k);
-        o._oyaw *= k;
-        o._opitch *= k;
-        o.pos.set(o._S.x + o._ofs.x, o._S.y + o._ofs.y, o._S.z + o._ofs.z);
-        o.yaw = o._Syaw + o._oyaw;
-        o.pitch = o._Spitch + o._opitch;
-      } else {
-        o.pos.copy(o._S);
-      }
-    }
+  if (MP.st != null) {
+    MP.st += dt / SIM_DT;
+    MP.rt = MP.st - mpDelay();
+    mpInterp();
   }
   for (const p of projectiles) {
     if (p.vel && p.pos) p.pos.addScaledVector(p.vel, dt);

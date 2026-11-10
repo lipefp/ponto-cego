@@ -1009,6 +1009,12 @@ function updateHUD(dt) {
       fpsN = 0;
     }
   } else HUD.fps.text = '';
+  /* online: atraso da conexão sempre visível (acima de 150 ms a compensação já não cobre tudo) */
+  if (MP.role === 'guest') {
+    const t = ON.st === 'retry' ? 'reconectando…' : ON.rtt + ' ms';
+    const b = HUD.fps.text.split(' · ')[0];
+    HUD.fps.text = SAVE.fps && b.endsWith('FPS') ? b + ' · ' + t : t;
+  }
 }
 function layoutHUD() {
   const w = innerWidth;

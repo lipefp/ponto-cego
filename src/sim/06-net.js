@@ -2,7 +2,7 @@
    PREPARAÇÃO PARA MULTIPLAYER (v4) — comandos de entrada e snapshots
    Nada aqui muda regras: só formaliza as fronteiras que já existiam.
    - ENTRADA → COMANDO: a cada passo de 60 Hz o jogo captura INPUT + mira
-     (yaw/pitch do jogador e do drone) num comando serializável (28 bytes).
+     (yaw/pitch do jogador e do drone) num comando serializável (32 bytes).
      A simulação recebe o comando por applyCmd() → INPUT, como antes.
      netStep(dt) = captura → registra (NET.log, anel de 10 s) → aplica → simStep.
      No multiplayer: o cliente envia encodeCmd(cmd); o servidor faz
@@ -56,6 +56,7 @@ function captureCmd(tick, a) {
     pitch: a.pitch,
     dyaw: drone.yaw,
     dpitch: drone.pitch,
+    vt: MP.role === 'guest' ? MP.rt : 0,
   };
 }
 function applyCmd(c, a) {
@@ -73,10 +74,13 @@ function applyCmd(c, a) {
     drone.pitch = c.dpitch;
   }
 }
-/* binário compacto (28 bytes): tick u32 · fwd/side/lean i8 · slot u8 · botões u16 · yaw/pitch/droneYaw/dronePitch f32 */
+/* binário compacto (32 bytes): tick u32 · fwd/side/lean i8 · slot u8 · botões u16 · yaw/pitch/droneYaw/dronePitch f32 ·
+   vt f32 = passo do servidor que o jogador estava VENDO nos outros bonecos (o servidor volta os alvos a esse passo
+   para conferir os tiros: compensação de atraso) */
+const NET_CMD_BYTES = 32;
 function encodeCmd(c, out) {
-  const u = out || new Uint8Array(28),
-    d = new DataView(u.buffer, u.byteOffset, 28);
+  const u = out || new Uint8Array(NET_CMD_BYTES),
+    d = new DataView(u.buffer, u.byteOffset, NET_CMD_BYTES);
   d.setUint32(0, c.t >>> 0, true);
   d.setInt8(4, c.fwd);
   d.setInt8(5, c.side);
@@ -87,10 +91,11 @@ function encodeCmd(c, out) {
   d.setFloat32(16, c.pitch, true);
   d.setFloat32(20, c.dyaw, true);
   d.setFloat32(24, c.dpitch, true);
+  d.setFloat32(28, c.vt || 0, true);
   return u;
 }
 function decodeCmd(u) {
-  const d = new DataView(u.buffer, u.byteOffset, 28),
+  const d = new DataView(u.buffer, u.byteOffset, NET_CMD_BYTES),
     s = d.getUint8(7);
   return {
     t: d.getUint32(0, true),
@@ -103,6 +108,7 @@ function decodeCmd(u) {
     pitch: d.getFloat32(16, true),
     dyaw: d.getFloat32(20, true),
     dpitch: d.getFloat32(24, true),
+    vt: d.getFloat32(28, true),
   };
 }
 /* passo local com comando (o laço principal usa este no lugar de simStep) */

@@ -20,7 +20,16 @@ const ON = {
   tried: false,
   closeInfo: '',
 };
-const ON_PROTO = 2;
+const ON_PROTO = 3;
+/* token da sessão: se a conexão cair no meio da partida, o servidor devolve o mesmo boneco a quem apresentar o token */
+function onlineToken(v) {
+  try {
+    if (v !== undefined) sessionStorage.setItem('pc_mp_token', v || '');
+    return sessionStorage.getItem('pc_mp_token') || '';
+  } catch (e) {
+    return v !== undefined ? (ON.token = v || '') : ON.token || '';
+  }
+}
 
 function onlineHostDefault() {
   if (SAVE.mpHost) return SAVE.mpHost;
@@ -81,6 +90,19 @@ function onlineClose() {
 function onlineDropped(msg) {
   clearInterval(ON.tm);
   clearInterval(ON.ui);
+  /* caiu no meio da partida: tenta voltar por até 45 s antes de desistir (um bot segura o boneco no servidor) */
+  if (MP.role === 'guest' && ON.st !== 'off' && onlineToken()) {
+    if (ON.st !== 'retry') ON.retryAt = performance.now();
+    if (performance.now() - ON.retryAt < 45000) {
+      ON.st = 'retry';
+      HOOK.banner('Conexão perdida', 'Tentando voltar para a partida…', '', 3);
+      clearTimeout(ON.retryTm);
+      ON.retryTm = setTimeout(() => {
+        if (ON.st === 'retry') onlineConnect(true);
+      }, 1500);
+      return;
+    }
+  }
   ON.st = 'off';
   ON.found = null;
   ON.err = msg || '';
@@ -88,8 +110,9 @@ function onlineDropped(msg) {
   menuTab = 'online';
   onlineRefresh();
 }
-function onlineConnect() {
+function onlineConnect(retry) {
   onlineClose();
+  if (retry) ON.st = 'retry';
   ON.tried = true;
   const host = onlineHostDefault();
   const url = onlineWsUrl(host);
@@ -97,7 +120,7 @@ function onlineConnect() {
     onlineRefresh();
     return;
   }
-  ON.st = 'connecting';
+  if (!retry) ON.st = 'connecting';
   ON.err = '';
   onlineRefresh();
   let ws;
@@ -116,6 +139,12 @@ function onlineConnect() {
       ON.err = 'O servidor não respondeu.';
       onlineClose();
       onlineRefresh();
+    } else if (ON.ws === ws && ON.st === 'retry' && ws.readyState !== 1) {
+      ON.ws = null;
+      try {
+        ws.close();
+      } catch (e) {}
+      onlineDropped('Conexão com o servidor perdida.');
     }
   }, 8000);
   ws.onopen = () => {
@@ -127,6 +156,7 @@ function onlineConnect() {
         proto: ON_PROTO,
         build: (typeof PCCORE !== 'undefined' && PCCORE.VERSION) || '',
         info: onlineInfo(),
+        resume: onlineToken() || undefined,
       })
     );
     ON.infoKey = JSON.stringify(onlineInfo());
@@ -134,7 +164,7 @@ function onlineConnect() {
     ON.tm = setInterval(() => {
       ON.pingT = performance.now();
       onlineSendJSON({ t: 'ping', n: 1 });
-    }, 3000);
+    }, 2000);
     clearInterval(ON.ui);
     ON.ui = setInterval(() => {
       if (ON.st === 'queued' || ON.st === 'found') onlineRefresh();
@@ -169,6 +199,21 @@ function onlineConnect() {
 function onlineMsg(m) {
   switch (m.t) {
     case 'welcome':
+      if (m.token) onlineToken(m.token);
+      if (ON.st === 'retry') {
+        /* se o servidor não mandar 'start' logo em seguida, a vaga não existe mais */
+        clearTimeout(ON.retryTm);
+        ON.retryTm = setTimeout(() => {
+          if (ON.st === 'retry') {
+            ON.st = 'idle';
+            ON.err = 'Não deu para voltar: a partida acabou ou a vaga venceu.';
+            if (MP.role === 'guest') toMenu(true);
+            menuTab = 'online';
+            onlineRefresh();
+          }
+        }, 2500);
+        break;
+      }
       ON.st = 'idle';
       ON.err = '';
       onlineRefresh();
@@ -225,6 +270,16 @@ function onlineSearch() {
 }
 /* a partida começou no servidor: monta o mundo local e entra (a simulação passa a vir dos snapshots) */
 function onlineStart(m) {
+  clearTimeout(ON.retryTm);
+  if (m.resume && MP.role === 'guest') {
+    /* voltou de uma queda sem sair da tela do jogo: só religa a rede; o snapshot completo acerta o resto */
+    ON.st = 'match';
+    mpClientInit(m.gi | 0);
+    MP.resync = true;
+    HOOK.banner('Conexão restabelecida', '', '', 2);
+    return;
+  }
+  if (m.resume) MP.resync = true;
   ON.st = 'match';
   ON.found = null;
   const old = SAVE.startSide;

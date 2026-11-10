@@ -8,6 +8,9 @@
      PORT (8080) · SERVER_NAME · MAX_PLAYERS (10 por partida) · MAX_MATCHES (4 partidas ao mesmo tempo)
      QUEUE_WAIT_S (20: espera máxima para juntar gente; com 10 na fila começa na hora)
      ACCEPT_S (15: tempo para aceitar) · BACK_TO_LOBBY_S (15: tela final)
+     RECONNECT_S (60: tempo que a vaga de quem caiu fica guardada; um bot joga no lugar até ele voltar)
+     MAX_PER_IP (12: conexões por endereço) · ALLOWED_ORIGINS (lista separada por vírgula; vazio = qualquer origem)
+     COMPRESS (1: comprime os pacotes; 0 desliga)
    ===================================================================== */
 'use strict';
 const http = require('http'),
@@ -26,7 +29,17 @@ const QUEUE_WAIT =
     : 20) * 1000;
 const ACCEPT_MS = (+process.env.ACCEPT_S || 15) * 1000;
 const BACK_S = +process.env.BACK_TO_LOBBY_S || 15;
-const PROTO = 2;
+const RECONNECT_MS =
+  (process.env.RECONNECT_S !== undefined && +process.env.RECONNECT_S >= 0
+    ? +process.env.RECONNECT_S
+    : 60) * 1000;
+const MAX_PER_IP = Math.max(1, +process.env.MAX_PER_IP || 12);
+const ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim().toLowerCase().replace(/\/+$/, ''))
+  .filter(Boolean);
+const COMPRESS = process.env.COMPRESS !== '0';
+const PROTO = 3;
 const SPEED = Math.max(
   1,
   +process.env.SIM_SPEED || 1
@@ -40,7 +53,9 @@ function newSim() {
   s.mpServerInit();
   return s;
 }
-const DT = newSim().SIM_DT;
+const SIM0 = newSim();
+const DT = SIM0.SIM_DT,
+  CMD_BYTES = SIM0.NET_CMD_BYTES;
 const BUILD = (() => {
   try {
     return new Function(SIM_SRC)().BUILD || 'dev';
@@ -115,17 +130,49 @@ const server = http.createServer((req, res) => {
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('não encontrado');
 });
+/* compressão: os snapshots são JSON e encolhem ~4x. Nível 1, sem guardar contexto entre mensagens e janela
+   pequena: gasta pouco processador e pouca memória por conexão (a máquina do servidor pode ser pequena). */
 const wss = new WebSocketServer({
   server,
   path: '/ws',
   maxPayload: 64 * 1024,
-  perMessageDeflate: false,
+  perMessageDeflate: COMPRESS
+    ? {
+        zlibDeflateOptions: { level: 1, memLevel: 7 },
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        serverMaxWindowBits: 12,
+        threshold: 256,
+        concurrencyLimit: 8,
+      }
+    : false,
+  verifyClient: (info, done) => {
+    if (ORIGINS.length) {
+      const o = String(info.origin || '')
+        .toLowerCase()
+        .replace(/\/+$/, '');
+      if (!ORIGINS.includes(o)) return done(false, 403, 'origem não permitida');
+    }
+    const ip = ipOf(info.req);
+    if ((ipCount.get(ip) || 0) >= MAX_PER_IP) return done(false, 429, 'conexões demais');
+    done(true);
+  },
 });
+/* endereço de quem conecta (atrás do Caddy/nginx vem em X-Forwarded-For) */
+const ipCount = new Map();
+function ipOf(req) {
+  const xf = String((req.headers && req.headers['x-forwarded-for']) || '')
+    .split(',')[0]
+    .trim();
+  return xf || (req.socket && req.socket.remoteAddress) || '?';
+}
 
 /* ---------- jogadores, fila e partidas ---------- */
 const clients = new Set(); /* todos os conectados */
 const queue = []; /* clientes procurando partida (ordem de chegada) */
 const matches = new Set(); /* partidas (aceite ou em andamento) */
+const ghosts =
+  new Map(); /* token -> {m, slot, info, until}: vaga guardada de quem caiu no meio da partida */
 let nextId = 1,
   nextMatch = 1;
 function inMatchCount() {
@@ -160,10 +207,15 @@ function statMsg() {
   };
 }
 
-function addClient(ws) {
+function addClient(ws, ip) {
+  ipCount.set(ip, (ipCount.get(ip) || 0) + 1);
   const c = {
     id: nextId++,
     ws,
+    ip,
+    token: crypto.randomBytes(12).toString('hex'),
+    binN: 0,
+    binT: Date.now(),
     state: 'new',
     info: null,
     match: null,
@@ -196,6 +248,9 @@ function unqueue(c) {
 function dropClient(c) {
   if (!clients.has(c)) return;
   clients.delete(c);
+  const n = (ipCount.get(c.ip) || 1) - 1;
+  if (n > 0) ipCount.set(c.ip, n);
+  else ipCount.delete(c.ip);
   unqueue(c);
   if (c.match) leaveMatch(c, true);
   if (c.info) log(`saiu: ${c.info.name} · ${clients.size} conectado(s)`);
@@ -213,25 +268,72 @@ function leaveMatch(c, closed) {
     cancelAccept(m, 'um jogador saiu');
   } else {
     if (c.slot >= 0) {
-      m.sim.mpRemoveHuman(c.slot);
-      log(`saiu da partida ${m.id}: ${c.info && c.info.name} (vaga ${c.slot})`);
+      /* um bot assume o boneco (vivo). Se a conexão caiu, a vaga fica guardada para o jogador voltar */
+      m.sim.mpDetachHuman(c.slot);
+      const keep = closed && RECONNECT_MS > 0 && m.sim.G.phase !== 'over';
+      if (keep) {
+        ghosts.set(c.token, { m, slot: c.slot, info: c.info, until: Date.now() + RECONNECT_MS });
+        m.slots[c.slot] = { ghost: c.token };
+      } else m.slots[c.slot] = null;
+      log(
+        `${keep ? 'caiu da' : 'saiu da'} partida ${m.id}: ${c.info && c.info.name} (vaga ${c.slot}${keep ? ', guardada' : ''})`
+      );
     }
-    m.slots[c.slot] = null;
     c.slot = -1;
-    if (m.players.length === 0) destroyMatch(m, 'todos saíram');
+    if (m.players.length === 0 && !hasGhosts(m)) destroyMatch(m, 'todos saíram');
   }
   if (!closed) {
     c.state = 'idle';
     sendJSON(c, { t: 'idle' });
   }
 }
+function hasGhosts(m) {
+  for (const g of ghosts.values()) if (g.m === m) return true;
+  return false;
+}
+/* quem caiu voltou dentro do prazo: reassume o mesmo boneco */
+function resume(c, token) {
+  if (typeof token !== 'string' || token.length !== 24) return false;
+  /* a conexão antiga pode ainda não ter sido dada como morta: quem tem o token assume o lugar dela */
+  if (!ghosts.has(token))
+    for (const o of clients)
+      if (o !== c && o.token === token && o.match && o.match.phase === 'match' && o.slot >= 0) {
+        dropClient(o);
+        try {
+          o.ws.terminate();
+        } catch (e) {}
+        break;
+      }
+  const g = ghosts.get(token);
+  if (!g) return false;
+  ghosts.delete(token);
+  const m = g.m;
+  if (!matches.has(m) || m.phase !== 'match' || m.sim.G.phase === 'over') return false;
+  if (!m.slots[g.slot] || m.slots[g.slot].ghost !== token) return false;
+  if (!m.sim.mpAddHuman(g.slot, c.info || g.info)) return false;
+  c.token = token;
+  c.match = m;
+  c.slot = g.slot;
+  c.state = 'match';
+  m.slots[g.slot] = c;
+  m.players.push(c);
+  m.sim.mpForceFull();
+  log(`voltou para a partida ${m.id}: ${c.info && c.info.name} (vaga ${c.slot})`);
+  return true;
+}
 function onMessage(c, data, isBin) {
   if (isBin) {
-    /* comando de jogo: 28 bytes */
+    /* comando de jogo: tamanho fixo, no máximo 150 por segundo (o jogo manda 60) */
     const m = c.match;
     if (!m || m.phase !== 'match' || c.slot < 0) return;
+    const nowB = Date.now();
+    if (nowB - c.binT > 1000) {
+      c.binT = nowB;
+      c.binN = 0;
+    }
+    if (++c.binN > 150) return;
     const u = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-    if (u.length !== 28) return;
+    if (u.length !== CMD_BYTES) return;
     m.sim.mpRecvCmd(c.slot, new Uint8Array(u));
     return;
   }
@@ -266,9 +368,14 @@ function onMessage(c, data, isBin) {
     }
     c.info = cleanInfo(m.info);
     c.state = 'idle';
-    sendJSON(c, { t: 'welcome', proto: PROTO, build: BUILD, name: SERVER_NAME });
-    sendJSON(c, statMsg());
+    const back = resume(c, m.resume);
+    sendJSON(c, { t: 'welcome', proto: PROTO, build: BUILD, name: SERVER_NAME, token: c.token });
     log(`entrou: ${c.info.name} · ${clients.size} conectado(s)`);
+    if (back) {
+      sendJSON(c, { t: 'start', gi: c.slot, side0: c.match.side0, resume: true });
+      return;
+    }
+    sendJSON(c, statMsg());
     return;
   }
   if (c.state === 'new') return;
@@ -394,6 +501,7 @@ function startMatch(m) {
     m.sim.mpAddHuman(slot, c.info);
   });
   const side0 = m.sim.mpStartMatch();
+  m.side0 = side0;
   log(
     `partida ${m.id} iniciada · ${m.players.length} humano(s) · time A começa no ${side0 === 'atk' ? 'ataque' : 'defesa'}`
   );
@@ -405,6 +513,7 @@ function startMatch(m) {
 function destroyMatch(m, why) {
   log(`partida ${m.id} encerrada (${why})`);
   matches.delete(m);
+  for (const [k, g] of ghosts) if (g.m === m) ghosts.delete(k);
   if (m.sim && m.phase === 'match') {
     for (let i = 0; i < 10; i++) m.sim.mpRemoveHuman(i);
     m.sim.mpEndMatch();
@@ -466,6 +575,15 @@ setInterval(() => {
   for (const m of [...matches])
     if (m.phase === 'accept' && now > m.deadline) cancelAccept(m, 'tempo de aceite acabou');
   formMatches();
+  /* vagas guardadas que venceram: o bot fica de vez; partida sem ninguém e sem vaga guardada acaba */
+  for (const [k, g] of ghosts)
+    if (now > g.until) {
+      ghosts.delete(k);
+      if (g.m.slots[g.slot] && g.m.slots[g.slot].ghost === k) g.m.slots[g.slot] = null;
+    }
+  for (const m of [...matches])
+    if (m.phase === 'match' && m.players.length === 0 && !hasGhosts(m))
+      destroyMatch(m, 'todos saíram');
   for (const m of matches)
     if (m.phase === 'accept' && now % 1000 < 500)
       acceptProgress(m, true); /* atualiza a contagem regressiva */
@@ -479,8 +597,16 @@ setInterval(() => {
 /* estatística a cada 30 s (só durante partidas) */
 setInterval(() => {
   if (tickN) {
+    let rs = 0,
+      rn = 0;
+    for (const m of matches)
+      if (m.phase === 'match') {
+        const st = m.sim.mpNetStats();
+        rs += st.rew * st.n;
+        rn += st.n;
+      }
     log(
-      `${[...matches].filter((m) => m.phase === 'match').length} partida(s) · passo médio ${(tickMs / tickN).toFixed(2)} ms · ${(bytesOut / 30 / 1024).toFixed(0)} KB/s saída · ${pkN} pacotes`
+      `${[...matches].filter((m) => m.phase === 'match').length} partida(s) · passo médio ${(tickMs / tickN).toFixed(2)} ms · ${(bytesOut / 30 / 1024).toFixed(0)} KB/s saída (antes de comprimir) · ${pkN} pacotes · compensação média ${rn ? ((rs / rn / 60) * 1000).toFixed(0) : 0} ms`
     );
   }
   bytesOut = 0;
@@ -502,12 +628,12 @@ setInterval(() => {
   }
 }, 15000);
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   if (clients.size >= 200) {
     ws.close();
     return;
   }
-  addClient(ws);
+  addClient(ws, ipOf(req));
 });
 server.listen(PORT, '0.0.0.0', () =>
   log(

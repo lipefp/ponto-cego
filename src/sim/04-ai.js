@@ -379,6 +379,29 @@ AI.roundStart = function () {
     }
   });
 };
+/* um bot assume um boneco no meio da rodada (o jogador caiu ou saiu): entra no plano do time que já existe */
+AI.adopt = function (a) {
+  a.ai = {};
+  if (G.phase !== 'prep' && G.phase !== 'action') return;
+  const T = TACT[G.siteKey];
+  if (!T) return;
+  if (a.side === 'atk') {
+    if (!AI.atk) return;
+    const gr = AI.atk.groups[0];
+    gr.members.push(a);
+    a.ai.group = gr;
+    if (!gr.breacher || !gr.breacher.alive) gr.breacher = a;
+    if (!AI.atk.carrier) AI.atk.carrier = a;
+  } else {
+    const holds = safeHolds(G.siteKey),
+      h = pick(holds),
+      ents = T.entries.map(entryObj);
+    a.ai.roamer = false;
+    a.ai.hold = cellCenter({ x: h[0], z: h[1] });
+    a.ai.watch = pick(ents);
+    a.ai.tasks = [];
+  }
+};
 AI.onBreach = function (s) {
   if (!AI.def) return;
   const T = TACT[G.siteKey];

@@ -402,9 +402,24 @@ function headPos(e, out) {
 }
 const _hp = new V3();
 function hitAgent(o, d, e) {
-  headPos(e, _hp);
-  const th = raySphere(o, d, _hp.x, _hp.y, _hp.z, 0.14);
-  const tb = rayCyl(o, d, e.pos.x, e.pos.z, 0.3, e.pos.y + 0.05, e.pos.y + 1.46 - 0.47 * e.crouchK);
+  /* online: o tiro de um humano é conferido contra a posição que ele VIA (07-mp.js, mpLcState) */
+  const L = MP.lcTick > 0 ? mpLcState(e) : null;
+  let th, tb;
+  if (L) {
+    th = raySphere(
+      o,
+      d,
+      L.x + Math.cos(L.yaw) * L.lean * 0.42,
+      L.y + 1.6 - 0.48 * L.ck,
+      L.z - Math.sin(L.yaw) * L.lean * 0.42,
+      0.14
+    );
+    tb = rayCyl(o, d, L.x, L.z, 0.3, L.y + 0.05, L.y + 1.46 - 0.47 * L.ck);
+  } else {
+    headPos(e, _hp);
+    th = raySphere(o, d, _hp.x, _hp.y, _hp.z, 0.14);
+    tb = rayCyl(o, d, e.pos.x, e.pos.z, 0.3, e.pos.y + 0.05, e.pos.y + 1.46 - 0.47 * e.crouchK);
+  }
   if (th > 0 && (tb < 0 || th < tb + 0.05)) return { t: th, head: true };
   if (tb > 0) return { t: tb, head: false };
   return null;
@@ -441,7 +456,8 @@ function fire(a, extraErr) {
     return false;
   }
   ws.mag--;
-  a.fireCD = d.rate;
+  /* cadência exata: o resto do passo anterior entra na conta (a 60 Hz, 800 tiros/min virava 720) */
+  a.fireCD = d.rate + (a.fireCD > -SIM_DT ? a.fireCD : 0);
   a.shots++;
   a.sinceShot = 0;
   a.fireT = G.clock;

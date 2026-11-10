@@ -19,18 +19,44 @@ fs.mkdirSync(DEST, { recursive: true });
 
 /* sim.js = toda a simulação (src/sim/*.js, mesma ordem do jogo) + a API do servidor */
 const simDir = path.join(ROOT, 'src/sim');
-const sim = fs.readdirSync(simDir).filter((f) => f.endsWith('.js')).sort().map((f) => fs.readFileSync(path.join(simDir, f), 'utf8')).join('\n');
-const tail = `\nreturn {SIM_DT,BUILD:${JSON.stringify(pkg.version)},G,agents,teams,mpServerInit,mpAddHuman,mpUpdateInfo,mpRemoveHuman,mpRecvCmd,mpServerStep,mpClientHdr,mpStartMatch,mpEndMatch,mpCleanInfo};\n`;
+const sim = fs
+  .readdirSync(simDir)
+  .filter((f) => f.endsWith('.js'))
+  .sort()
+  .map((f) => fs.readFileSync(path.join(simDir, f), 'utf8'))
+  .join('\n');
+const tail = `\nreturn {SIM_DT,BUILD:${JSON.stringify(pkg.version)},G,agents,teams,mpServerInit,mpAddHuman,mpUpdateInfo,mpRemoveHuman,mpDetachHuman,mpForceFull,mpNetStats,NET_CMD_BYTES,mpRecvCmd,mpServerStep,mpClientHdr,mpStartMatch,mpEndMatch,mpCleanInfo};\n`;
 fs.writeFileSync(path.join(DEST, 'sim.js'), sim + tail);
 
 for (const f of ['server.js']) fs.copyFileSync(path.join(ROOT, 'server', f), path.join(DEST, f));
 const html = path.join(ROOT, 'dist/PontoCego.html');
 if (fs.existsSync(html)) fs.copyFileSync(html, path.join(DEST, 'game.html'));
-else if (process.env.MKSERVER_NOHTML) fs.writeFileSync(path.join(DEST, 'game.html'), '<!doctype html><title>teste</title>');
-else { console.error('dist/PontoCego.html não existe: rode node tools/build.mjs antes'); process.exit(1); }
-fs.cpSync(path.join(ROOT, 'server/deps/ws'), path.join(DEST, 'node_modules/ws'), { recursive: true });
-for (const f of ['Dockerfile', 'docker-compose.yml', '.dockerignore', 'README.md']) fs.copyFileSync(path.join(ROOT, 'server', f), path.join(DEST, f));
-fs.writeFileSync(path.join(DEST, 'package.json'), JSON.stringify({ name: 'ponto-cego-servidor', version: pkg.version, private: true, main: 'server.js', scripts: { start: 'node server.js' }, engines: { node: '>=18' } }, null, 2) + '\n');
+else if (process.env.MKSERVER_NOHTML)
+  fs.writeFileSync(path.join(DEST, 'game.html'), '<!doctype html><title>teste</title>');
+else {
+  console.error('dist/PontoCego.html não existe: rode node tools/build.mjs antes');
+  process.exit(1);
+}
+fs.cpSync(path.join(ROOT, 'server/deps/ws'), path.join(DEST, 'node_modules/ws'), {
+  recursive: true,
+});
+for (const f of ['Dockerfile', 'docker-compose.yml', '.dockerignore', 'README.md'])
+  fs.copyFileSync(path.join(ROOT, 'server', f), path.join(DEST, f));
+fs.writeFileSync(
+  path.join(DEST, 'package.json'),
+  JSON.stringify(
+    {
+      name: 'ponto-cego-servidor',
+      version: pkg.version,
+      private: true,
+      main: 'server.js',
+      scripts: { start: 'node server.js' },
+      engines: { node: '>=18' },
+    },
+    null,
+    2
+  ) + '\n'
+);
 
 const zip = path.join(OUT, 'PontoCego_Servidor.zip');
 fs.rmSync(zip, { force: true });

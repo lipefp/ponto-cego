@@ -6,20 +6,20 @@ const ROOT=path.join(__dirname,'..'),OUT=require('path').join(require('os').tmpd
 execSync('MKSERVER_NOHTML=1 node tools/mkserver.mjs '+OUT,{cwd:ROOT,stdio:'pipe'});
 const SD=path.join(OUT,'PontoCego_Servidor');const WS=require(path.join(SD,'node_modules/ws'));
 let bad=0;const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m);if(!c)bad++;};
-const enc=(t,fwd,side,lean,slot,b,yaw,pitch)=>{const u=new Uint8Array(28),d=new DataView(u.buffer);d.setUint32(0,t,true);d.setInt8(4,fwd);d.setInt8(5,side);d.setInt8(6,lean);d.setUint8(7,slot);d.setUint16(8,b,true);d.setFloat32(12,yaw,true);d.setFloat32(16,pitch,true);return u;};
+const enc=(t,fwd,side,lean,slot,b,yaw,pitch)=>{const u=new Uint8Array(32),d=new DataView(u.buffer);d.setUint32(0,t,true);d.setInt8(4,fwd);d.setInt8(5,side);d.setInt8(6,lean);d.setUint8(7,slot);d.setUint16(8,b,true);d.setFloat32(12,yaw,true);d.setFloat32(16,pitch,true);return u;};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const getJSON=(port,p)=>new Promise((res,rej)=>http.get({host:'127.0.0.1',port,path:p},r=>{let b='';r.on('data',d=>b+=d);r.on('end',()=>res(JSON.parse(b)));}).on('error',rej));
-function startServer(port,env){const p=spawn('node',['server.js'],{cwd:SD,env:Object.assign({},process.env,{PORT:String(port)},env)});let out='';p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>out+=d);p.log=()=>out;return p;}
+function startServer(port,env){const p=spawn('node',['server.js'],{cwd:SD,env:Object.assign({},process.env,{PORT:String(port),MAX_PER_IP:'99'},env)});let out='';p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>out+=d);p.log=()=>out;return p;}
 function client(port,name){return new Promise((res,rej)=>{
   const ws=new WS('ws://127.0.0.1:'+port+'/ws');const c={ws,name,msgs:[],pk:0,snaps:0,bytes:0,lastAck:0,acks:[],me:-1,started:false,back:false,room:null,lastSnap:null,evs:{}};
-  ws.on('open',()=>{ws.send(JSON.stringify({t:'hello',proto:2,info:{name,atkOp:'xx',defOp:'yy'}}));res(c);});
+  ws.on('open',()=>{ws.send(JSON.stringify({t:'hello',proto:3,info:{name,atkOp:'xx',defOp:'yy'}}));res(c);});
   ws.on('message',(data,isBin)=>{const s=data.toString();c.bytes+=s.length;const m=JSON.parse(s);
     if(m.t==='welcome')c.welcome=true;if(m.t==='found'){c.found=m;if(!c.noAccept&&!m.me)ws.send(JSON.stringify({t:'accept'}));}if(m.t==='queued'){c.queued=true;c.queuedN=(c.queuedN||0)+1;}if(m.t==='start'){c.started=true;c.gi=m.gi;c.me=m.gi;}if(m.t==='back')c.back=true;if(m.t==='error')c.err=m.msg;
     if(m.t==='pk'){c.pk++;if(m.h){c.lastAck=m.h.ack;}if(m.p.s){c.snaps++;const S=c.lastSnap||(c.lastSnap={agents:Array.from({length:10},()=>({})),G:{}});Object.assign(S.G,m.p.s.G);m.p.s.agents.forEach((a,i)=>Object.assign(S.agents[i],a));}for(const e of m.p.e||[])c.evs[e.n]=(c.evs[e.n]||0)+1;}});
   ws.on('error',rej);});}
 (async()=>{
   /* ---------- A ---------- */
-  const PA=18081,srv=startServer(PA,{QUEUE_WAIT_S:'2',ACCEPT_S:'30'});await sleep(1500);
+  const PA=18081,srv=startServer(PA,{QUEUE_WAIT_S:'2',ACCEPT_S:'30',RECONNECT_S:'0'});await sleep(1500);
   const st0=await getJSON(PA,'/status');ok(st0.online===0&&st0.matches===0,'status inicial: 0 online, 0 partidas');
   const cs=[];for(const n of['Ana','Beto','Caio','Duda'])cs.push(await client(PA,n));await sleep(400);
   ok(cs.every(c=>c.welcome),'todos recebem welcome');
@@ -59,7 +59,7 @@ function client(port,name){return new Promise((res,rej)=>{
   /* sai um no meio da partida */
   cs[3].ws.close();await sleep(600);
   const st1=await getJSON(PA,'/status');ok(st1.playing===3&&st1.matches===1,'saída no meio: 3 jogadores, partida segue');
-  const A2=cs[0].lastSnap.agents;ok(A2[cs[3].gi].alive===false,'agente de quem saiu morre');
+  const A2=cs[0].lastSnap.agents;ok(A2[cs[3].gi].alive!==false,'agente de quem saiu segue vivo com um bot');
   cs.slice(0,3).forEach(c=>c.ws.close());await sleep(800);
   const st2=await getJSON(PA,'/status');ok(st2.matches===0&&st2.online===0,'todos saíram: nenhuma partida');
   console.log(srv.log().split('\n').slice(-12).join('\n'));srv.kill();await sleep(300);

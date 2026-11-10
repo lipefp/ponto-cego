@@ -27,6 +27,11 @@ O jogo está no ar nesse endereço. Você abre no navegador, sem instalar nada, 
 
 Para jogar com um amigo, os dois abrem o mesmo endereço e entram na fila ao mesmo tempo.
 
+O que a rede faz por você:
+- **Compensação de atraso:** o servidor confere o tiro contra a posição que você via na tela, até 0,35 s para trás. O atraso aparece em milissegundos no canto da tela.
+- **Movimento liso:** os outros jogadores aparecem cerca de 0,1 s no passado, entre duas posições recebidas, em vez de pular.
+- **Queda de conexão:** se a internet cair, um bot assume o seu boneco e o jogo tenta voltar sozinho por 45 segundos. A vaga fica guardada por 1 minuto.
+
 Pontos importantes:
 - O modo online está em teste (beta). Pode ter erros, e o servidor pode estar fora do ar em alguns momentos.
 - O servidor é pequeno e roda **uma partida de cada vez**. Se já houver uma em andamento, a fila espera.
@@ -95,6 +100,10 @@ Ajustes por variável de ambiente:
 | `QUEUE_WAIT_S` | 20 | Segundos de espera na fila antes de completar com bots |
 | `ACCEPT_S` | 15 | Segundos para aceitar a partida encontrada |
 | `BACK_TO_LOBBY_S` | 15 | Segundos na tela final antes de voltar ao lobby |
+| `RECONNECT_S` | 60 | Segundos que a vaga de quem caiu fica guardada. Um bot joga no lugar até a pessoa voltar |
+| `MAX_PER_IP` | 12 | Conexões aceitas por endereço IP |
+| `ALLOWED_ORIGINS` | vazio | Lista de origens aceitas, separadas por vírgula. Vazio aceita qualquer uma |
+| `COMPRESS` | 1 | Comprime os pacotes. Use 0 para desligar |
 
 ## Como foi feito
 
