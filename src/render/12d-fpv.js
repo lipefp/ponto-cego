@@ -401,13 +401,80 @@ function fpvSetup(k, c, scene) {
           np[v * 3 + 1] += nor[v * 3 + 1] * 0.012;
           np[v * 3 + 2] += nor[v * 3 + 2] * 0.012;
         }
+        /* a malha do braço acaba aberta no ombro: quando a mão vai à frente, a ponta oca aparecia na tela.
+           A borda do ombro é esticada 0,7 m para trás (na direção cotovelo -> ombro), com os mesmos pesos,
+           e a manga passa a sair da tela como um braço inteiro. */
+        let xp = Array.from(np),
+          xn = Array.from(nor),
+          xu = vd.uvs ? Array.from(vd.uvs) : null,
+          xi = Array.from(mi),
+          xw = Array.from(mw);
+        try {
+          const bpos = (n) => {
+            const b = sk.bones.find((x) => x.name === n);
+            return b ? b.getInvertedAbsoluteTransform().clone().invert().getTranslation() : null;
+          };
+          const ec = new Map();
+          for (let t = 0; t < idxs.length; t += 3)
+            for (let e = 0; e < 3; e++) {
+              const u = idxs[t + e],
+                v = idxs[t + ((e + 1) % 3)],
+                k = u < v ? u + '_' + v : v + '_' + u;
+              ec.set(k, (ec.get(k) || 0) + 1);
+            }
+          const edges = [];
+          for (const [k, n] of ec) if (n === 1) edges.push(k.split('_').map(Number));
+          const P = (v) => new B.Vector3(np[v * 3], np[v * 3 + 1], np[v * 3 + 2]);
+          const sides = ['Left', 'Right']
+            .map((sd) => ({ elbow: bpos(sd + 'ForeArm'), hand: bpos(sd + 'Hand') }))
+            .filter((x) => x.elbow && x.hand);
+          for (const sd of sides) {
+            const back = sd.elbow.subtract(sd.hand).normalize();
+            /* borda do lado do ombro: fica para trás do cotovelo e mais perto deste cotovelo que do outro */
+            const ok = (v) => {
+              const p = P(v);
+              if (B.Vector3.Dot(p.subtract(sd.elbow), back) < 0.02) return false;
+              for (const o of sides)
+                if (o !== sd && B.Vector3.Distance(p, o.elbow) < B.Vector3.Distance(p, sd.elbow))
+                  return false;
+              return true;
+            };
+            const es = edges.filter((e) => ok(e[0]) && ok(e[1]));
+            if (es.length < 3) continue;
+            const c0 = new B.Vector3();
+            const vs = new Set();
+            for (const e of es) for (const v of e) vs.add(v);
+            for (const v of vs) c0.addInPlace(P(v));
+            const dir = c0
+              .scale(1 / vs.size)
+              .subtract(sd.elbow)
+              .normalize()
+              .scale(0.7);
+            const map = new Map();
+            for (const v of vs) {
+              map.set(v, xp.length / 3);
+              xp.push(np[v * 3] + dir.x, np[v * 3 + 1] + dir.y, np[v * 3 + 2] + dir.z);
+              xn.push(nor[v * 3], nor[v * 3 + 1], nor[v * 3 + 2]);
+              if (xu) xu.push(vd.uvs[v * 2], vd.uvs[v * 2 + 1]);
+              for (let q = 0; q < 4; q++) {
+                xi.push(mi[v * 4 + q]);
+                xw.push(mw[v * 4 + q]);
+              }
+            }
+            for (const [u, v] of es) idxs.push(u, v, map.get(v), u, map.get(v), map.get(u));
+            rig.sleeveExt = (rig.sleeveExt || 0) + es.length;
+          }
+        } catch (e) {
+          console.warn('sleeve ext', e);
+          xp = Array.from(np);
+        }
         const nv = new B.VertexData();
-        nv.positions = np;
-        nv.normals = nor;
-        nv.uvs = vd.uvs;
+        nv.positions = xp;
+        nv.normals = xn;
+        nv.uvs = xu;
         nv.indices = idxs;
-        nv.matricesIndices = mi;
-        nv.matricesWeights = mw;
+        nv.matricesIndices = xi;
+        nv.matricesWeights = xw;
         const sl = new B.Mesh('fpsleeve_mesh', scene);
         nv.applyToMesh(sl, false);
         sl.skeleton = sk;
@@ -552,8 +619,8 @@ function fpvDetach() {
 }
 /* classes de mão: por enquanto só por rig; offsets por classe em FPV_CLS (m, no quadro da arma: dx,dy,dz da arma; fx,fy,fz da mão de apoio) */
 const FPV_CLS = {
-  smg: { fz: 0.02 },
-  lmg: { fz: 0.03 },
+  smg: { fz: 0.04 },
+  lmg: { fz: 0.05 },
 }; /* beta.8: a mão de apoio cai sobre a empunhadura vertical (antes ficava 2-3 cm atrás dela) */
 /* gadget/granada na mão direita durante o arremesso/uso (modelo do soldado, escala 1/hs dentro do holder) */
 function fpvHeld(kind) {
