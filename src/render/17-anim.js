@@ -1485,11 +1485,24 @@ function updateVM(dt) {
   if (a.onGround) VM.bobT += dt * sp * 1.55;
   const bob = SAVE.bob ? clamp(sp / 5, 0, 1) * (1 - a.ads * 0.85) : 0;
   {
+    /* inércia do mouse: a arma volta ao centro com mola levemente solta (passa um pouco e assenta).
+       Inclinado: mola bem mais dura (arma quase travada no eixo da câmera). */
     const lk = Math.abs(a.lean || 0) > 0.04 ? 1 : 0,
-      dm = Math.max(0, 1 - dt * (9 + lk * 40));
-    VM.swayX *= dm;
-    VM.swayY *= dm;
-  } /* inclinado: a arma fica travada no eixo da câmera (sem balanço do mouse) */
+      kK = 90 + lk * 600,
+      cK = 11 + lk * 45,
+      n = Math.max(1, Math.ceil(dt / 0.008)),
+      h = dt / n;
+    VM.swvX = VM.swvX || 0;
+    VM.swvY = VM.swvY || 0;
+    for (let i = 0; i < n; i++) {
+      VM.swvX += (-kK * VM.swayX - cK * VM.swvX) * h;
+      VM.swvY += (-kK * VM.swayY - cK * VM.swvY) * h;
+      VM.swayX += VM.swvX * h;
+      VM.swayY += VM.swvY * h;
+    }
+    VM.swayX = clamp(VM.swayX, -0.07, 0.07);
+    VM.swayY = clamp(VM.swayY, -0.06, 0.06);
+  }
   const PO = vmPose(VM.info),
     ads = easeAds(clamp(a.ads, 0, 1)),
     sg = VM.info.sight,

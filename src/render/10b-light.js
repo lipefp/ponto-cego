@@ -441,8 +441,14 @@ function setupPipeline() {
   ip.exposure = 1.25;
   ip.contrast = 1.18;
   ip.vignetteEnabled = q !== 'low';
-  ip.vignetteWeight = 1.4;
+  ip.vignetteWeight = 1.9;
   ip.vignetteColor = new B.Color4(0, 0, 0, 0);
+  /* grão de filme sutil e animado (estilo MW): quase invisível parado, tira o aspecto "limpo demais" */
+  pipeline.grainEnabled = q !== 'low';
+  if (pipeline.grainEnabled) {
+    pipeline.grain.intensity = 7;
+    pipeline.grain.animated = true;
+  }
   if (q !== 'low') {
     ip.colorCurvesEnabled = true;
     const cc = new B.ColorCurves();

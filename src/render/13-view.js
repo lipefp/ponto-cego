@@ -94,7 +94,12 @@ function updateCamera(dt) {
        aplicado depois de yaw+pitch: olhar para baixo/cima nunca vira a imagem de cabeça para baixo */
     {
       const yw = a.yaw + rand(-sh, sh),
-        pt = a.pitch + a.punch + rand(-sh, sh) + VM.landDip * 0.06,
+        pt =
+          a.pitch +
+          a.punch +
+          rand(-sh, sh) +
+          VM.landDip * 0.06 +
+          Math.sin(VM.bobT * 2 + 0.5) * 0.004 * bk,
         rl = Math.sin(VM.bobT) * 0.0045 * bk - VM.latK * 0.012;
       B.Quaternion.RotationYawPitchRollToRef(yw, pt, rl, _lq1);
       if (Math.abs(a.lean) > 1e-3) {

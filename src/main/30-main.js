@@ -167,6 +167,11 @@ Object.assign(HOOK, {
     playSound('gun', a.pos, { w: curW(a).id, me, sup: d.sup });
     if (me) {
       VM.kick = 1;
+      /* trauma: tremor curto da câmera por tiro, maior nas armas pesadas (decai sozinho no updateCamera) */
+      VM.shake = Math.min(
+        0.4,
+        VM.shake + (d.cls === 'sg' || d.cls === 'sgs' || d.cls === 'dmr' || d.cls === 'lmg' ? 0.09 : 0.045)
+      );
       if (VM.info && !d.sup) VM.info.flash.material.alpha = 1;
       if (d.cls === 'sg') VM.pumpT = 0.55;
       if (!d.sup) {
