@@ -195,6 +195,7 @@ Object.assign(HOOK, {
   },
   hurt(att) {
     hurtFrom(att);
+    VM.shake = Math.min(0.5, VM.shake + 0.12); /* levar dano sacode a câmera de leve */
     playSound('hurt');
     VM.shake = Math.max(VM.shake, 0.45);
   },

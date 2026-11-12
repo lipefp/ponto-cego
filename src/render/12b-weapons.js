@@ -835,7 +835,7 @@ function weaponMat(scene, wid, sid) {
     const env = wEnv(scene);
     if (env) {
       m.reflectionTexture = env;
-      m.environmentIntensity = 0.9;
+      m.environmentIntensity = 0.55; /* reflexo mais baixo: arma escura tática, sem "prateado" no sol */
     }
   }
   if (t.glow) {

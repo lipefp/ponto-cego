@@ -36,8 +36,8 @@ function setupShadows() {
   shadowGen = new B.ShadowGenerator(hi ? 2048 : 1536, sun);
   shadowGen.usePercentageCloserFiltering = true;
   shadowGen.filteringQuality = hi
-    ? B.ShadowGenerator.QUALITY_MEDIUM
-    : B.ShadowGenerator.QUALITY_LOW;
+    ? B.ShadowGenerator.QUALITY_HIGH
+    : B.ShadowGenerator.QUALITY_LOW; /* alta: PCF 5x5 — borda de sombra macia de verdade */
   shadowGen.bias = 0.0006;
   shadowGen.normalBias = 0.015;
   shadowGen.darkness = 0;
@@ -421,8 +421,8 @@ function setupPipeline() {
     const c = game.imageProcessingConfiguration;
     c.toneMappingEnabled = true;
     c.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
-    c.exposure = 1.25;
-    c.contrast = 1.18;
+    c.exposure = 1.12;
+    c.contrast = 1.3;
     return;
   } /* mínima: sem pós-processo, só o tonemap nos materiais */
   /* beta.8: sem SSAO. Ele desenha a cena inteira de novo (buffer de normais), borra o chão e pintou a arma com as normais em alguns aparelhos. A oclusão já vem pronta no mapa de luz (18-look). */
@@ -438,8 +438,9 @@ function setupPipeline() {
   const ip = pipeline.imageProcessing;
   ip.toneMappingEnabled = true;
   ip.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
-  ip.exposure = 1.25;
-  ip.contrast = 1.18;
+  ip.exposure = 1.12;
+  ip.contrast = 1.3;
+  game.environmentIntensity = 0.88; /* ambiente um pouco mais baixo: sombras marcam mais, menos "chapado" */
   ip.vignetteEnabled = q !== 'low';
   ip.vignetteWeight = 1.9;
   ip.vignetteColor = new B.Color4(0, 0, 0, 0);

@@ -1508,9 +1508,14 @@ function updateVM(dt) {
     sg = VM.info.sight,
     gp = VM.info.grip,
     fk = vmFovK(),
-    s = PO.s * (SAVE.vmSize || 1) * fk * (wd.vs || 1);
+    s =
+      PO.s *
+      0.86 *
+      (SAVE.vmSize || 1) *
+      fk *
+      (wd.vs || 1); /* 0.86: arma mais discreta na tela (estilo MW), sem mexer no alinhamento da mira */
   /* mirando: o ponto da mira fica no eixo da câmera, à distância de olho da mira (luneta mais perto, ferro mais longe) */
-  const hip = new V3(PO.hip[0] * hand * fk, PO.hip[1] * fk, PO.hip[2] * fk),
+  const hip = new V3(PO.hip[0] * hand * fk, PO.hip[1] * fk - 0.012, PO.hip[2] * fk - 0.018),
     eyeD = Math.max((VM.info.eye || 0.2) * (VM.eyeK || 1), VM.eyeMin || 0.08),
     aim = new V3(-(sg.x - gp.x) * s * hand, -(sg.y - gp.y) * s, -eyeD - (sg.z - gp.z) * s);
   camera.minZ =
