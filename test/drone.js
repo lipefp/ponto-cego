@@ -1,0 +1,13 @@
+const {chromium}=require('/opt/npm-tools/node_modules/playwright');
+(async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
+const p=await (await b.newContext({viewport:{width:640,height:360}})).newPage();p.setDefaultTimeout(600000);/*v4: máquina compartilhada*/const errs=[];p.on('pageerror',e=>errs.push(e.message));
+await p.goto('file://'+process.cwd()+'/dist/test.html');await p.waitForFunction(()=>window.__pc&&(__pc.ASSETS.ready||__pc.ASSETS.failed),null,{timeout:900000,polling:100});/*v4: boot assíncrono*/await p.waitForTimeout(4000);
+const st=()=>p.evaluate(()=>({phase:__pc.G.phase,side:__pc.player.side,alive:__pc.drone.alive,active:__pc.drone.active,left:__pc.drone.left,cam:__pc.camMode()}));
+await p.evaluate(()=>{__pc.SAVE.side='atk';__pc.startMatch();document.dispatchEvent(new Event('pointerlockerror'));});await p.waitForTimeout(1500);
+console.log('inicio',await st());
+await p.evaluate(()=>__pc.destroyDrone());await p.waitForTimeout(600);console.log('1 destruido',await st());await p.screenshot({path:'shots/drone_lost1.png'});
+await p.evaluate(()=>{for(let i=0;i<120;i++)__pc.simStep(__pc.SIM_DT);});await p.waitForTimeout(500);console.log('reserva',await st());
+await p.evaluate(()=>__pc.destroyDrone());await p.waitForTimeout(800);console.log('2 destruido',await st());await p.screenshot({path:'shots/drone_lost2.png'});
+await p.evaluate(()=>{for(let i=0;i<60*45;i++)__pc.simStep(__pc.SIM_DT);});await p.waitForTimeout(800);
+const x0=await p.evaluate(()=>__pc.player.pos.x+','+__pc.player.pos.z);await p.evaluate(()=>{__pc.INPUT.fwd=1;for(let i=0;i<60;i++)__pc.simStep(__pc.SIM_DT);});
+console.log('acao',await st(),'pos',x0,'->',await p.evaluate(()=>__pc.player.pos.x+','+__pc.player.pos.z));console.log(errs.join('\n'));await b.close();})();

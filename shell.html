@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ponto Cego (Beta)</title>
+<!--
+  PONTO CEGO v5 — FPS tático 5v5 (modo bomba) contra bots.
+  Arquivo único: Babylon.js, Babylon GUI, carregador glTF, Havok (física, WASM), decodificador meshopt, modelos .glb (CC0),
+  texturas e sons estão todos aqui dentro, em pacotes base64 comprimidos (deflate) que o carregador abre no navegador.
+  Créditos dos modelos (CC0, domínio público): Kenney (kenney.nl) — Furniture Kit, Weapon Pack; Kay Lousberg (kaylousberg.com) — KayKit City Builder Bits.
+  Bibliotecas: Babylon.js (Apache-2.0), @babylonjs/havok (MIT), meshoptimizer (MIT).
+  Funciona offline em Chrome, Edge ou Firefox recentes (Windows, Linux, Mac). Abra com dois cliques.
+  Código-fonte: NÚCLEO (src/core, módulos ES) · SIMULAÇÃO (src/sim) → RENDERIZAÇÃO (src/render) → INTERFACE (src/ui) → PRINCIPAL (src/main).
+-->
+<style>
+/*FONTS*/
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0b0d;}
+  #view{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none;}
+  #pc-load{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:radial-gradient(ellipse at 50% 40%,#121416 0%,#0a0b0d 70%);color:#eef2f4;pointer-events:none;transition:opacity .4s ease;
+    font-family:'Barlow Condensed',Bahnschrift,'DIN Alternate','Roboto Condensed','Arial Narrow','Segoe UI',Ubuntu,sans-serif;}
+  #pc-load h1{margin:0;font-family:'Big Shoulders Stencil Display','Barlow Condensed',Impact,sans-serif;font-size:56px;font-weight:700;letter-spacing:.12em;display:flex;align-items:center;gap:16px;text-transform:uppercase;}
+  #pc-load h1 svg{width:46px;height:46px;}
+  #pc-load h1 b{color:#e8812f;font-weight:700;}
+  #pc-load .track{width:min(420px,70vw);height:3px;background:rgba(232,222,204,.14);overflow:hidden;}
+  #pc-load-bar{height:100%;width:100%;background:#e8812f;transform:scaleX(0);transform-origin:0 50%;transition:transform .15s linear;}
+  #pc-load .row{width:min(420px,70vw);display:flex;justify-content:space-between;font-size:13px;color:#98a19f;letter-spacing:.06em;}
+  #pc-load-pct{font-family:Consolas,'DejaVu Sans Mono',monospace;}
+</style>
+</head>
+<body>
+<canvas id="view" tabindex="0"></canvas>
+<div id="pc-load"><h1><svg viewBox="0 0 64 64" fill="none"><path d="M6 22V6h16M42 6h16v16M58 42v16H42M22 58H6V42" stroke="#f1f2f3" stroke-width="4" stroke-linecap="square"/><rect x="38" y="38" width="9" height="9" fill="#e8812f"/><rect x="17" y="17" width="9" height="9" stroke="#9ba1a7" stroke-width="2"/></svg><span>PONTO CEGO</span></h1><div class="track"><div id="pc-load-bar"></div></div>
+  <div class="row"><span id="pc-load-stage">Carregando…</span><span id="pc-load-pct">0%</span></div></div>
+<script id="pc-manifest" type="application/json">/*MANIFEST*/</script>
+<!--PACKS-->
+<script>/*BOOT*/</script>
+</body>
+</html>

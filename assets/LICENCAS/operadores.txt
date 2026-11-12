@@ -1,0 +1,35 @@
+OPERADORES (src/render/12c-chars.js, src/render/17-anim.js, assets/op_*)
+
+1) Personagem e animações Mixamo (Adobe) — v4
+assets/op_swat.bin   malha + esqueleto do personagem "SWAT" do Mixamo (glb sem texturas, normais/UV/pesos quantizados)
+assets/op_anim.bin   47 clipes Mixamo: "Rifle 8-Way Locomotion Pack" (parado, mirando, andar/correr/disparada em 8
+                     direções, agachado parado/andando em 8 direções, giro de 90°, pulo, mortes) e
+                     "Pistol Handgun Locomotion Pack" (parado, andar, correr, ajoelhado). Pacote próprio: quatérnios
+                     int16 por osso, faixas constantes colapsadas, translação só no quadril.
+assets/op_body.jpg, op_bodym.jpg, op_bodyn.jpg, op_headc.jpg, op_headn.jpg
+                     texturas do mesmo personagem (difusa 1024 sem o letreiro "SWAT" das costas — apagado por inpaint;
+                     máscara do tecido gerada pela cor; normal 1024/256; rosto 512).
+  Origem: mixamo.com (Adobe), arquivos enviados pelo usuário (7ab9d74f-Swat.fbx e pacotes de animação).
+  Licença: termos do Mixamo/Adobe — personagens e animações podem ser usados royalty-free em projetos pessoais,
+  comerciais e jogos (não é permitido redistribuir os arquivos brutos como asset avulso). Aqui vão embutidos e
+  convertidos dentro do jogo.
+  Conversão: FBX2glTF (Facebook, BSD) → gltf-transform (MIT) e scripts próprios (scratchpad/opscripts/build_ops.mjs,
+  tex.py com OpenCV).
+  O uniforme é retingido por operador em tempo de carga (padronagens digitais/manchas geradas por código);
+  capacetes alternativos, bonés, chapéus, máscaras, mochilas, ombreiras e cilindros são geometria procedural própria.
+
+2) assets/op_head.bin, assets/op_face.jpg, assets/op_facen.jpg (continuam em uso pelos braços/fallback procedural)
+  Derivados de "Infinite, 3D Head Scan" por Lee Perry-Smith (Infinite-Realities, www.ir-ltd.net),
+  baseado em trabalho de www.triplegangers.com. Licença: Creative Commons Attribution 3.0 Unported (CC-BY 3.0).
+  Origem: three.js examples/models/gltf/LeePerrySmith (LeePerrySmith.glb, Map-COL.jpg, Infinite-Level_02_Tangent_SmoothUV.jpg).
+  Modificações: malha simplificada (meshoptimizer) e recortada no pescoço, reescalada; textura reduzida a 384 px,
+  cor de pele neutralizada (tom por vértice), olhos abertos pintados; normal map reduzido.
+
+3) Clipes adicionais em assets/op_anim.bin (51 clipes, 429 KB): Mixamo "Basic Shooter Pack" (disparo de fuzil/recuo,
+  recarga, arremesso de granada, reação a impacto), mesmos termos de uso Mixamo/Adobe do item 1 (uso em jogo permitido,
+  redistribuição apenas embutida no produto). Reamostrados em quaternions int16 por scripts próprios.
+4) Ragdoll na morte (Havok/Babylon) e variações de operador (tom de pele, boné/capacete/balaclava, paleta, escala ±6%)
+  são código próprio, sem assets adicionais.
+
+Todo o resto (equipamentos/gadgets, braços de 1ª pessoa, texturas de camuflagem/cordura/borracha/plástico/metal e
+normal/rugosidade do atlas) é geometria e textura procedural gerada em código pelo próprio projeto.

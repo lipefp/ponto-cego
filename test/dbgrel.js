@@ -1,0 +1,13 @@
+const {chromium}=require('/opt/npm-tools/node_modules/playwright');
+(async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+const p=await (await b.newContext({viewport:{width:560,height:420},offline:true})).newPage();p.setDefaultTimeout(60000);p.on('pageerror',e=>console.log('PE',e.message));p.on('console',m=>console.log('C',m.text().slice(0,200)));
+const T0=Date.now();const L=s=>console.log(((Date.now()-T0)/1000).toFixed(1),s);
+await p.goto('file://'+process.cwd()+'/dist/test.html');L('goto');await p.waitForFunction(()=>window.__pc&&(__pc.ASSETS.ready||__pc.ASSETS.failed),null,{timeout:900000,polling:100});L('assets');await p.waitForTimeout(2500);
+await p.evaluate(()=>{__pc.startMatch();document.dispatchEvent(new Event('pointerlockerror'));});L('start');await p.waitForTimeout(1200);
+await p.evaluate(()=>{for(let i=0;i<60*31;i++)__pc.simStep(__pc.SIM_DT);const pl=__pc.player;pl.hp=1e6;pl.pos.x=40;pl.pos.z=28;pl.yaw=1.2;pl.pitch=0;__pc.VM.noHolster=true;__pc.engine.stopRenderLoop();});L('warm');
+const r=await p.evaluate(()=>{const P=__pc,pl=P.player,B=BABYLON,out=[];const WID=window.__WID||'marimbondo',SL=P.WEAPONS[WID].slot;pl.cur=SL;pl.w[SL].id=WID;pl.w[SL].mag=1;pl.w[SL].res=99;
+ const step=dt=>{const n=Math.round(dt/P.SIM_DT);for(let i=0;i<n;i++)P.simStep(P.SIM_DT);P.updateCamera(dt);P.updateVM(dt);};
+ const t0=performance.now();for(let i=0;i<40;i++)step(1/36);out.push('warm '+(performance.now()-t0|0));P.game.render();out.push('render '+(performance.now()-t0|0));
+ P.INPUT.reload=true;step(1/36);P.INPUT.reload=false;const R0=P.FPV.cur;out.push('rig '+R0.k+' dFore '+JSON.stringify(R0.dFore.map(x=>+x.toFixed(3)))+' magP '+JSON.stringify(R0.magP&&R0.magP.map(x=>+x.toFixed(3)))+' r0 '+JSON.stringify(R0.mg[0]&&R0.mg[0].a.ref.p.map(x=>+x.toFixed(3)))+' hs '+R0.hs);out.push('reloadT '+pl.reloadT.toFixed(2)+' cur '+pl.cur+' rig '+(P.FPV.cur&&P.FPV.cur.k)+' nodes '+(P.FPV.cur&&!!P.FPV.cur.nodes)+' LH '+(P.FPV.cur&&P.FPV.cur.LH));
+ let n=0;const rig=P.FPV.cur;for(let t=0;t<2&&n<200;t+=1/36){step(1/36);n++;if(n%6===0){const nd=rig.nodes[rig.LH];nd.computeWorldMatrix(true);const w=nd.getAbsolutePosition();out.push('p '+n+' '+w.x.toFixed(2)+','+w.y.toFixed(2)+','+w.z.toFixed(2));const pr=B.Vector3.Project(w,B.Matrix.Identity(),P.game.getTransformMatrix(),P.camera.viewport.toGlobal(560,420));out.push('  scr '+pr.x.toFixed(0)+','+pr.y.toFixed(0));}}out.push('steps '+n+' '+(performance.now()-t0|0));return out;});L(JSON.stringify(r));
+await b.close();})();

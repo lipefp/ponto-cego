@@ -1,0 +1,15 @@
+services:
+  pontocego:
+    build: .
+    image: ponto-cego-servidor
+    container_name: ponto-cego
+    restart: unless-stopped
+    ports:
+      - "8080:8080"          # mude o primeiro número para trocar a porta pública
+    environment:
+      - SERVER_NAME=Ponto Cego # nome do servidor
+      - MAX_PLAYERS=10         # humanos por partida (5 contra 5)
+      - MAX_MATCHES=4          # partidas ao mesmo tempo
+      - QUEUE_WAIT_S=20        # espera máxima na fila antes de começar com bots
+      - ACCEPT_S=15            # tempo para aceitar a partida
+      - BACK_TO_LOBBY_S=15     # segundos na tela final
