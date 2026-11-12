@@ -65,6 +65,18 @@ function updateCamera(dt) {
   if (a.alive && !a.bot) {
     camMode = 'fp';
     const e = eyeOf(a);
+    /* câmera viva: balanço do passo, mergulho no pouso, rolagem no strafe e FOV na corrida.
+       Só visual — a simulação e a rede não leem nada daqui. */
+    const adsK = easeAds(a.ads),
+      bk =
+        (SAVE.bob ? clamp(Math.hypot(a.vel.x, a.vel.z) / 5, 0, 1) : 0) *
+        (1 - adsK * 0.85) *
+        (a.onGround ? 1 : 0.3) *
+        (1 + VM.sprintK * 0.6),
+      bx = Math.sin(VM.bobT) * 0.006 * bk;
+    e.y += Math.sin(VM.bobT * 2) * 0.01 * bk - VM.landDip * 0.035;
+    e.x += Math.cos(a.yaw) * bx;
+    e.z += -Math.sin(a.yaw) * bx;
     /* passo fixo de 60 Hz × taxa de quadros da tela: interpola a posição entre o passo anterior e o atual (sem tremida nem atraso extra) */
     if (a._pp && a._al != null && !paused) {
       const dx = a.pos.x - a._pp.x,
@@ -82,8 +94,9 @@ function updateCamera(dt) {
        aplicado depois de yaw+pitch: olhar para baixo/cima nunca vira a imagem de cabeça para baixo */
     {
       const yw = a.yaw + rand(-sh, sh),
-        pt = a.pitch + a.punch + rand(-sh, sh);
-      B.Quaternion.RotationYawPitchRollToRef(yw, pt, 0, _lq1);
+        pt = a.pitch + a.punch + rand(-sh, sh) + VM.landDip * 0.06,
+        rl = Math.sin(VM.bobT) * 0.0045 * bk - VM.latK * 0.012;
+      B.Quaternion.RotationYawPitchRollToRef(yw, pt, rl, _lq1);
       if (Math.abs(a.lean) > 1e-3) {
         _lax.set(Math.sin(yw), 0, Math.cos(yw));
         B.Quaternion.RotationAxisToRef(_lax, -a.lean * 0.26, _lq2);
@@ -93,7 +106,7 @@ function updateCamera(dt) {
       camera.rotation.y = yw;
     }
     const wd = WEAPONS[curW(a).id];
-    setFov(SAVE.fov * (1 + (wd.zoom - 1) * easeAds(a.ads)));
+    setFov(SAVE.fov * (1 + (wd.zoom - 1) * adsK) * (1 + 0.06 * VM.sprintK));
   } else {
     camMode = 'spec';
     camera.rotationQuaternion = null;

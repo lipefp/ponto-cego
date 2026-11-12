@@ -242,6 +242,7 @@ Object.assign(HOOK, {
   },
   land(imp) {
     VM.landDip = Math.min(1, imp / 7);
+    VM.shake = Math.max(VM.shake, Math.min(0.5, imp / 14));
     playSound('land', null, { imp });
   },
   reload(a) {
