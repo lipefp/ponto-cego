@@ -332,11 +332,59 @@ function uiScaleSync() {
     t.useSmallestIdeal = true;
   }
 }
-function applyQuality() {
+function baseScale() {
   const q = QL();
-  engine.setHardwareScalingLevel(
-    q === 3 ? 1 / Math.min(window.devicePixelRatio || 1, 1.25) : QUAL_SCALE[q]
-  );
+  return q === 3 ? 1 / Math.min(window.devicePixelRatio || 1, 1.25) : QUAL_SCALE[q];
+}
+/* ---------- resolução automática ----------
+   Mede os quadros por segundo a cada segundo de partida. Abaixo de 50, desenha em resolução menor (até 55% da
+   escolhida); sobrando folga por 6 s, volta a subir. Se subir derrubar os quadros de novo, guarda esse limite por
+   1 minuto para não ficar oscilando. */
+const AUTO = { k: 1, acc: 0, n: 0, good: 0, floor: 1, floorT: 0, upT: 0 };
+function autoApply() {
+  engine.setHardwareScalingLevel(baseScale() * AUTO.k);
+  uiScaleSync();
+}
+function autoRes(dt) {
+  if (SAVE.autoRes === false) {
+    if (AUTO.k !== 1) {
+      AUTO.k = 1;
+      autoApply();
+    }
+    return;
+  }
+  if (dt > 0.5) return; /* aba voltou do fundo: não conta */
+  AUTO.acc += dt;
+  AUTO.n++;
+  if (AUTO.acc < 1) return;
+  const fps = AUTO.n / AUTO.acc,
+    now = performance.now();
+  AUTO.acc = 0;
+  AUTO.n = 0;
+  if (now > AUTO.floorT) AUTO.floor = 1;
+  if (fps < 50) {
+    if (now - AUTO.upT < 4000) {
+      AUTO.floor = Math.min(1.8, AUTO.k * 1.1);
+      AUTO.floorT = now + 60000;
+    }
+    AUTO.good = 0;
+    if (AUTO.k < 1.8) {
+      AUTO.k = Math.min(1.8, Math.max(AUTO.floor, AUTO.k * (fps < 35 ? 1.25 : 1.12)));
+      autoApply();
+    }
+  } else if (fps > 57) {
+    if (++AUTO.good >= 6 && AUTO.k > AUTO.floor) {
+      AUTO.k = Math.max(AUTO.floor, AUTO.k / 1.1);
+      AUTO.good = 0;
+      AUTO.upT = now;
+      autoApply();
+    }
+  } else AUTO.good = 0;
+}
+function applyQuality() {
+  AUTO.k = 1;
+  AUTO.floor = 1;
+  engine.setHardwareScalingLevel(baseScale());
   uiScaleSync();
   setupShadows();
   setupPipeline();
@@ -678,6 +726,7 @@ engine.runRenderLoop(() => {
     lobby.render();
     return;
   }
+  if (!paused && typeof PC_TEST === 'undefined') autoRes(engine.getDeltaTime() / 1000);
   if (HUD.pauseT) {
     const t = MP.role === 'guest' ? 'Menu · a partida continua' : 'Partida pausada';
     if (HUD.pauseT.text !== t) HUD.pauseT.text = t;

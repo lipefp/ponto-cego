@@ -7,4 +7,4 @@
    ===================================================================== */
 export { createPhysics, mixamoRagdollConfig, mixamoPrefix } from './physics.js';
 export { createEngine, RENDERERS } from './engine.js';
-export const VERSION = '6.0.0-beta.13';
+export const VERSION = '6.0.0-beta.14';

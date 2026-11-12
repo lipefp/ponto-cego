@@ -1363,6 +1363,16 @@ function renderMenu() {
       })
     );
     add(
+      checkRow(
+        'Resolução automática (segura os quadros por segundo)',
+        SAVE.autoRes !== false,
+        (v) => {
+          SAVE.autoRes = v;
+          persist();
+        }
+      )
+    );
+    add(
       checkRow('Mostrar FPS', SAVE.fps, (v) => {
         SAVE.fps = v;
         persist();

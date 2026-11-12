@@ -24,6 +24,7 @@ const SAVE = {
   hand: 'right',
   bob: true,
   fps: false,
+  autoRes: true /* baixa a resolução sozinho quando o jogo cai de 50 quadros por segundo */,
   quality: 'high',
   vmSize: 1,
   atkOp: 'brecha',

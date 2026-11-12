@@ -147,6 +147,10 @@ function ensureChar(a) {
     if (ch) ch.root.dispose();
     ch = buildCharacter(game, a.op, rel, vari);
     CH.set(a, ch);
+    /* os marcadores (aliado, inimigo marcado) aparecem através das paredes: ficam num nó próprio, que continua
+       ligado quando o boneco é escondido por estar atrás de parede */
+    ch.anchor = new B.TransformNode('chAnchor', game);
+    ch.root.onDisposeObservable.add(() => ch.anchor.dispose());
     if (rel === 'ally') {
       const mk = B.MeshBuilder.CreateCylinder(
         'mk',
@@ -156,14 +160,14 @@ function ensureChar(a) {
       mk.rotation.x = Math.PI;
       mk.position.y = 2.2;
       mk.material = markMat;
-      mk.parent = ch.root;
+      mk.parent = ch.anchor;
       mk.renderingGroupId = 1;
       ch.mark = mk;
     }
     const sp = B.MeshBuilder.CreatePolyhedron('sp', { type: 1, size: 0.12 }, game);
     sp.position.y = 2.25;
     sp.material = spotMat;
-    sp.parent = ch.root;
+    sp.parent = ch.anchor;
     sp.renderingGroupId = 1;
     sp.setEnabled(false);
     ch.spot = sp;
@@ -222,16 +226,68 @@ function updateBlobs() {
   }
   blobS.m.thinInstanceBufferUpdated('matrix');
 }
+/* Boneco atrás de parede não é desenhado nem animado a cada quadro (cada um custa ~20 mil triângulos com
+   esqueleto). A conferência usa a linha de visão da simulação, da câmera até 5 pontos do boneco (cabeça, peito,
+   pés e os dois ombros), a cada 3 quadros. Fica visível por mais 0,6 s depois de sumir, e sempre a menos de 5 m. */
+const _cs = new V3(),
+  _ce = new V3();
+let charFrame = 0;
+function charSeen(a, ch) {
+  const cam = game.activeCamera;
+  if (!cam || a === player) return true;
+  const now = performance.now();
+  if ((charFrame + a.id) % 3 === 0 || ch.seenT === undefined) {
+    const c = cam.globalPosition;
+    _cs.set(c.x, c.y, c.z);
+    const dx = a.pos.x - c.x,
+      dz = a.pos.z - c.z,
+      d = Math.hypot(dx, dz) || 1,
+      px = (-dz / d) * 0.4,
+      pz = (dx / d) * 0.4,
+      top = a.alive ? 1.55 - 0.45 * a.crouchK : 0.3;
+    let vis = d < 5;
+    for (let i = 0; i < 5 && !vis; i++) {
+      _ce.set(
+        a.pos.x + (i === 3 ? px : i === 4 ? -px : 0),
+        a.pos.y + (i === 0 ? top : i === 2 ? 0.15 : top * 0.65),
+        a.pos.z + (i === 3 ? pz : i === 4 ? -pz : 0)
+      );
+      vis = clearSight(_cs, _ce);
+    }
+    if (vis) {
+      ch.seenT = now;
+      ch.seenF = charFrame;
+    } else if (ch.seenT === undefined) {
+      ch.seenT = -1e9;
+      ch.seenF = -99;
+    }
+  }
+  /* com poucos quadros por segundo o prazo conta em quadros (uma conferência a cada 3) */
+  return now - ch.seenT < 600 || charFrame - ch.seenF <= 4;
+}
 function updateChars(dt) {
+  charFrame++;
   for (const a of agents) {
     const ch = ensureChar(a);
     if (!ch) continue;
-    const w = curW(a);
-    setCharWeapon(ch, w.id, a.skins[wBase(w.id)] || 'padrao');
-    animChar(ch, a, dt);
+    const seen = SAVE.cullChars === false || charSeen(a, ch);
+    if (ch.root && ch.root.isEnabled() !== seen) ch.root.setEnabled(seen);
+    /* marcadores seguem o boneco mesmo escondido, a cada quadro */
     if (ch.mark) ch.mark.setEnabled(a.alive);
     ch.spot.setEnabled(a.alive && a.team !== player.team && a.spotT > G.clock);
     if (ch.spot.isEnabled()) ch.spot.rotation.y += dt * 3;
+    if (!seen) {
+      if (ch.anchor) ch.anchor.position.set(a.pos.x, a.pos.y, a.pos.z);
+      /* escondido: anima só de vez em quando, para o estado (morto, agachado) estar certo quando reaparecer */
+      ch.skipT = (ch.skipT || 0) + dt;
+      if ((charFrame + a.id) % 8 !== 0) continue;
+      dt = ch.skipT;
+    }
+    ch.skipT = 0;
+    const w = curW(a);
+    setCharWeapon(ch, w.id, a.skins[wBase(w.id)] || 'padrao');
+    animChar(ch, a, Math.min(dt, 0.25));
+    if (seen && ch.anchor) ch.anchor.position.copyFrom(ch.root.position);
   }
   updateBlobs();
 }

@@ -42,6 +42,8 @@ function setupShadows() {
   shadowGen.normalBias = 0.015;
   shadowGen.darkness = 0;
   for (const m of shadowCasters) shadowGen.addShadowCaster(m, true);
+  /* na qualidade média a sombra é refeita a cada 2 quadros (metade do custo; a 60 quadros não se nota) */
+  shadowGen.getShadowMap().refreshRate = hi ? 1 : 2;
   /* enquadramento do sol calculado uma vez e congelado: sombras não "nadam" quando algo se mexe */
   sun.autoUpdateExtends = true;
   game.onAfterRenderObservable.addOnce(() => {
