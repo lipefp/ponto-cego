@@ -1,6 +1,0 @@
-const {chromium}=require('/opt/npm-tools/node_modules/playwright');
-(async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
-const p=await (await b.newContext({viewport:{width:640,height:360},offline:true})).newPage();p.on('pageerror',e=>console.log('PE',e.message));p.on('console',m=>{if(!/GL Driver/.test(m.text()))console.log('C',m.text().slice(0,300));});
-await p.goto('file://'+process.cwd()+'/dist/test.html');await p.waitForFunction(()=>window.__pc&&(__pc.ASSETS.ready||__pc.ASSETS.failed),null,{timeout:900000,polling:100});await p.waitForTimeout(12000);
-console.log(await p.evaluate(()=>{const r=__pc.FPV.rigs;return Object.keys(r).map(k=>k+':'+r[k].sleeves.map(c=>c.name+' '+c.getBoundingInfo().boundingBox.extendSize.y.toFixed(2)+' en='+c.isEnabled()+' par='+c.parent.name).join(';')).join(' | ')}));console.log(await p.evaluate(()=>JSON.stringify({ab:typeof ASSET_BYTES,alb:ASSET_BYTES&&!!ASSET_BYTES('wa_m4.json'),bin:ASSET_BYTES&&!!ASSET_BYTES('wm_m4.bin'),wm:__pc.WM&&{on:__pc.WM.on,started:__pc.WM.started,bb:Object.keys(__pc.WM.bb),img:Object.keys(__pc.WM.img).length},lac:!!BABYLON.SceneLoader.LoadAssetContainerAsync})));
-await b.close();})();
